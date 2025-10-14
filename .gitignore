@@ -1,0 +1,81 @@
+# =====================================================
+# TELEGAN ADMIN - Archivos que NO deben subirse a Git
+# =====================================================
+
+# Variables de entorno (CRÍTICO - contiene credenciales)
+.env
+env
+*.env
+
+# Logs y archivos temporales
+*.log
+/tmp/
+/cache/
+/logs/
+
+# Archivos de configuración local
+config.local.php
+database.local.php
+
+# Archivos de backup
+*.sql.backup
+*.bak
+*.backup
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos de IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos de dependencias (si se agregan en el futuro)
+/vendor/
+/node_modules/
+/composer.lock
+/package-lock.json
+
+# Archivos de sesión PHP
+/sessions/
+/tmp/sessions/
+
+# Archivos de uploads (si se agregan en el futuro)
+/uploads/
+/storage/
+
+# Archivos de testing
+/test-results/
+/coverage/
+
+# Archivos de documentación generada
+/docs/build/
+
+# Archivos de configuración de servidor
+.htaccess.local
+nginx.conf.local
+apache.conf.local
+
+# Archivos de certificados SSL (si se usan)
+*.pem
+*.key
+*.crt
+*.csr
+
+# Archivos de base de datos local
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de configuración de Docker (si se usan)
+docker-compose.override.yml
+Dockerfile.local
+
+# Archivos de configuración de CI/CD
+.github/workflows/local.yml
+.gitlab-ci.local.yml
+
+

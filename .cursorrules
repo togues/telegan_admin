@@ -1,0 +1,750 @@
+# CONTEXTO DEL PROYECTO - PANEL ADMINISTRATIVO TELEGAN
+
+## Descripción General
+Panel de control estático (HTML/CSS/JS) para administrar (CRUD completo) base de datos PostgreSQL de agricultores.
+Se desplegará en hosting convencional con Apache y PHP.
+
+## Arquitectura
+- **Frontend**: Estático (HTML/CSS/JS puro) - Mobile-first
+- **Backend**: PHP 8.1+ PHP 8.1+ PURO (SIN frameworks, sin Slim, sin Laravel)
+- **Base de datos**: PostgreSQL 14 (ya existe, NO crear tablas, solo cadena de conexion)
+- **Servidor**: Apache en hosting convencional
+- **ORM**: PDO nativo de PHP para PostgreSQL
+- **Sin build tools**: Todo debe funcionar directo sin compilación
+
+## ESQUEMA DE BASE DE DATOS EXISTENTE
+esta descrito muy especificamente en @database-schema.sql
+### Tablas Principales (NO CREAR, SOLO CONSULTAR)
+
+**usuario**
+- id_usuario (SERIAL PRIMARY KEY)
+- nombre_completo, email, telefono, password_hash
+- ubicacion_general
+- activo, email_verificado, telefono_verificado
+- fecha_registro, ultima_sesion
+- codigo_telegan
+
+**demografia_usuario**
+- id_demografia (SERIAL PRIMARY KEY)
+- id_usuario (FK a usuario)
+- genero, edad, grupo_etnico
+- fecha_actualizacion
+
+**pais**
+- id_pais (SERIAL PRIMARY KEY)
+- codigo_iso2, codigo_iso3, nombre_pais
+- activo
+
+**finca**
+- id_finca (SERIAL PRIMARY KEY)
+- nombre_finca, id_usuario_creador (FK), id_pais (FK)
+- descripcion
+- geometria_wkt (TEXT), geometria_postgis (GEOMETRY)
+- area_hectareas
+- estado, fecha_creacion, fecha_actualizacion
+- codigo_telegan
+
+**usuario_finca** (relación muchos a muchos)
+- id_usuario_finca (PK)
+- id_usuario (FK), id_finca (FK)
+- rol (ADMIN, COLABORADOR)
+- fecha_asociacion
+
+**potrero**
+- id_potrero (SERIAL PRIMARY KEY)
+- id_finca (FK)
+- nombre_potrero, descripcion
+- geometria_wkt, geometria_postgis
+- area_hectareas, estado
+- fecha_creacion, codigo_telegan
+
+**registro_ganadero**
+- id_registro (SERIAL PRIMARY KEY)
+- id_potrero (FK), id_usuario (FK)
+- fecha_registro, numero_animales
+- tipo_pasto, estado_pasto, disponibilidad_agua
+- ubicacion_agua_wkt, ubicacion_agua_postgis
+- notas
+
+**historial_cambios** (auditoría)
+- id_historial (PK)
+- tabla_afectada, id_registro_afectado
+- id_usuario (FK), tipo_accion
+- datos_anteriores (JSONB), datos_nuevos (JSONB)
+- fecha_accion
+
+### Vistas Disponibles
+- v_usuarios_fincas
+- v_fincas_resumen
+- v_dashboard_alertas
+
+## Funcionalidades CRUD Requeridas
+
+### 1. USUARIOS
+- Listar con paginación y búsqueda
+- Ver detalle individual
+- Crear nuevo usuario
+- Editar usuario existente
+- Activar/Desactivar (NO eliminar físicamente)
+- Filtros: activo/inactivo, con/sin finca, por país
+- Alertas: usuarios sin finca, inactivos 30+ días, nunca logueados
+
+### 2. FINCAS
+- Listar con búsqueda y filtros
+- Ver detalle con potreros asociados
+- Crear finca (con geometría WKT o PostGIS)
+- Editar finca
+- Cambiar estado (ACTIVA/INACTIVA)
+- Asociar/desasociar usuarios con roles
+- Alertas: fincas sin potreros, sin actividad reciente
+
+### 3. POTREROS
+- Listar por finca
+- Crear potrero dentro de finca
+- Editar potrero
+- Activar/Desactivar
+- Ver registros ganaderos del potrero
+
+### 4. REGISTROS GANADEROS
+- Listar por potrero
+- Crear nuevo registro
+- Editar registro
+- Ver historial
+
+### 5. DEMOGRAFÍA
+- Agregar/editar datos demográficos de usuario
+- Estadísticas agregadas
+
+## Restricciones Técnicas CRÍTICAS
+
+### JavaScript
+- **NUNCA usar localStorage ni sessionStorage** (no funciona en todos los contextos)
+- Usar SOLO variables en memoria o cookies para state
+- Módulos ES6 con import/export
+- Fetch API para AJAX (sin jQuery)
+- Compatible con navegadores modernos sin transpilación
+
+### Rutas y URLs
+- **Rutas completamente relativas**: Usar `api` no `/api` ni `./api`
+- **APIs en public/**: Colocar archivos PHP de API en `public/api/` para acceso directo
+- **URLs autónomas**: El sistema debe funcionar desde cualquier dominio/ruta sin cambios
+- **Construcción de URLs**: Siempre verificar barras `/` entre baseURL y endpoint
+- **Debug de URLs**: Incluir `console.log` para verificar URLs construidas
+
+### PHP Backend
+Clases php usando un ORM Base de Datos PostgreSQL
+
+NUNCA crear, modificar o eliminar tablas
+NUNCA hacer DROP, ALTER TABLE, CREATE TABLE
+Solo SELECT, INSERT, UPDATE (no DELETE físico) Usar soft delete cambiando campo "activo" o "estado" Frontend
+
+Mobile-first OBLIGATORIO
+Sin frameworks (React, Vue, Angular)
+Sin bundlers (Webpack, Vite)
+CSS vanilla o tiwlind  
+Componentes modulares con clases ES6  Apache Hosting
+
+Todo debe correr en Apache convencional
+.htaccess para rewrite rules
+PHP 8.1+ disponible
+Extensión PostgreSQL habilitada (pdo_pgsql)
+mod_rewrite habilitado no usaremos slim Framework sino  clases PHP puras + PDO (que es como un ORM ligero).
+
+## DISEÑO VISUAL - iOS/Apple Style + Telegan Brand
+
+### Principios de Diseño
+- **Mobile-first iOS style**: Inspirado en iOS Human Interface Guidelines
+- **Minimalismo**: Espacios en blanco generosos, tipografía clara
+- **Interacciones suaves**: Transiciones y animaciones sutiles
+- **Accesibilidad**: Contraste WCAG AA, touch targets 44x44px mínimo
+
+### Colores Telegan (Ya definidos)
+/* ===================================
+   CSS Variables - Theme System
+   =================================== */
+:root {
+  /* Light Theme */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-card: #ffffff;
+  --text-primary: #1a1a1a;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --border-color: rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+
+  /* Telegan Brand Colors */
+  --accent-primary: #6dbe45; /* Verde menta */
+  --accent-secondary: #4da1d9; /* Azul cielo */
+  --accent-tertiary: #a4d65e; /* Verde lima */
+  --accent-warm: #ffd166; /* Amarillo suave */
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #6dbe45 0%, #4da1d9 100%);
+  --gradient-accent: linear-gradient(90deg, #6dbe45 0%, #4da1d9 50%, #a4d65e 100%);
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #141414;
+  --bg-card: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+}
+
+/* ===================================
+   Base Styles
+   =================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+}
+
+## DASHBOARD PRINCIPAL - Estructura y Funcionalidad Inicial
+
+### Layout Principal (Desktop + Mobile)
+
+#### Estructura General┌─────────────────────────────────────────┐
+│  Header (Top Bar con logo y usuario)   │
+├──────────┬──────────────────────────────┤
+│          │                              │
+│  Sidebar │   Main Content Area          │
+│  (Menu)  │   (Dashboard widgets/vistas) │
+│          │                              │
+│          │                              │
+└──────────┴──────────────────────────────┘
+│     Bottom Nav (Mobile only)            │
+└─────────────────────────────────────────┘
+
+#### Componentes del Layout
+
+**1. Top Header**
+- Logo Telegan (izquierda)
+- Título de sección actual (centro en mobile)
+- Avatar + nombre del admin + dropdown (derecha)
+- Toggle menú hamburguesa (mobile)
+- Notificaciones badge (futuro)
+
+**2. Sidebar (Desktop) / Drawer (Mobile)**
+
+## SEGURIDAD Y AUTENTICACIÓN - Mejores Prácticas
+
+### Principios de Seguridad CRÍTICOS
+- **NUNCA hardcodear credenciales** en el código fuente
+- **Siempre usar variables de entorno** para datos sensibles
+- **Validar TODOS los inputs** del usuario antes de procesar
+- **Sanitizar TODAS las salidas** para prevenir XSS
+- **Usar consultas preparadas** SIEMPRE (PDO prepare/execute)
+- **Implementar autenticación** en todos los endpoints sensibles
+- **Validar origen de requests** (dominio autorizado)
+- **Manejar sesiones de forma segura** con tokens únicos
+
+### Sistema de Autenticación
+- **Token de Aplicación**: Cada instalación tiene un token único
+- **Validación de Dominio**: APIs solo responden desde dominio autorizado
+- **Sesiones de Usuario**: Sistema híbrido (token app + sesión usuario)
+- **Roles y Permisos**: SUPER_ADMIN, TECNICO, ADMIN_FINCA
+- **Confirmación por Email**: Registro con PIN/confirmación obligatoria
+
+### Validación de Datos
+```php
+// SIEMPRE validar inputs
+function validateInput($input, $type = 'string', $maxLength = 255) {
+    if (empty($input)) return false;
+    
+    switch ($type) {
+        case 'email':
+            return filter_var($input, FILTER_VALIDATE_EMAIL) !== false;
+        case 'numeric':
+            return is_numeric($input) && $input > 0;
+        case 'string':
+        default:
+            $cleaned = trim($input);
+            return strlen($cleaned) <= $maxLength && 
+                   preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\-_\.@]+$/', $cleaned);
+    }
+}
+
+// SIEMPRE sanitizar outputs
+function sanitizeOutput($data) {
+    if (is_array($data)) {
+        return array_map('sanitizeOutput', $data);
+    }
+    return htmlspecialchars($data ?? '', ENT_QUOTES, 'UTF-8');
+}
+```
+
+### Configuración de Seguridad
+```php
+// Headers de seguridad OBLIGATORIOS
+function setSecurityHeaders() {
+    header('X-Frame-Options: DENY');
+    header('X-Content-Type-Options: nosniff');
+    header('X-XSS-Protection: 1; mode=block');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'");
+}
+
+// Validación de dominio OBLIGATORIA
+function validateDomain() {
+    $allowedDomain = $_ENV['APP_DOMAIN'] ?? 'localhost';
+    if ($_SERVER['HTTP_HOST'] !== $allowedDomain) {
+        http_response_code(403);
+        die('Access denied: Invalid domain');
+    }
+}
+```
+
+### Manejo de Base de Datos Seguro
+- **NUNCA concatenar strings** en consultas SQL
+- **Usar parámetros preparados** SIEMPRE
+- **Validar tipos de datos** antes de insertar
+- **Usar transacciones** para operaciones críticas
+- **Log de errores** sin exponer información sensible
+
+### Variables de Entorno Requeridas
+```env
+# Base de datos
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=telegan
+DB_USER=usuario_seguro
+DB_PASSWORD=password_muy_seguro
+
+# Aplicación
+APP_DOMAIN=tu-dominio.com
+APP_TOKEN=token_unico_por_instalacion
+APP_ENV=production
+
+# Email (para confirmaciones)
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=tu_email@telegan.com
+MAIL_PASSWORD=tu_app_password
+MAIL_ENCRYPTION=tls
+```
+
+### Archivos que NUNCA deben subirse a Git
+```
+.env
+*.log
+/vendor/
+/node_modules/
+/tmp/
+/cache/
+```
+
+### Patrones de Código Seguro
+- **Validar → Sanitizar → Procesar → Responder**
+- **Manejo de errores** sin exponer información interna
+- **Logging de seguridad** para auditoría
+- **Rate limiting** para prevenir ataques de fuerza bruta
+- **CORS configurado** correctamente
+
+## MÓDULO DE AUTENTICACIÓN AUTÓNOMO
+
+### Arquitectura del Sistema de Auth
+- **Aplicación completamente separada** en directorio `/auth/`
+- **Base de datos independiente** con tablas específicas para usuarios del sistema
+- **Sistema de seguridad robusto** con rate limiting y validación
+- **Comunicación entre módulos** mediante tokens de aplicación
+
+### Estructura del Módulo Auth
+```
+auth/
+├── index.php              # Punto de entrada principal
+├── login.php              # Página de login
+├── register.php           # Página de registro
+├── confirm.php            # Página de confirmación de email
+├── forgot-password.php    # Recuperación de contraseña
+├── config/
+│   ├── Database.php       # Conexión independiente
+│   ├── Security.php       # Seguridad robusta
+│   └── Email.php          # Sistema de emails
+├── assets/
+│   ├── css/auth.css       # Estilos iOS/Apple style
+│   └── js/auth.js         # JavaScript moderno
+└── templates/emails/      # Templates HTML de emails
+```
+
+### Tablas de Base de Datos Auth
+```sql
+-- Usuarios del sistema (administradores, técnicos)
+admin_users (
+    id_admin, nombre_completo, email, password_hash,
+    telefono, rol, activo, email_verificado,
+    codigo_confirmacion, token_confirmacion, expiracion_confirmacion,
+    intentos_login, bloqueado_hasta, created_by
+)
+
+-- Sesiones activas
+admin_sessions (
+    id_sesion, id_admin, token_sesion,
+    ip_address, user_agent, fecha_expiracion, activa
+)
+
+-- Tokens de aplicación (comunicación entre módulos)
+app_tokens (
+    id_token, token_hash, nombre_aplicacion,
+    dominio_autorizado, permisos, activo
+)
+
+-- Logs de seguridad
+security_logs (
+    id_log, id_admin, tipo_evento,
+    ip_address, user_agent, detalles, severidad
+)
+
+-- Confirmaciones pendientes
+pending_confirmations (
+    id_confirmacion, email, codigo_confirmacion,
+    token_confirmacion, tipo_confirmacion, fecha_expiracion
+)
+```
+
+### Flujo de Autenticación
+```
+1. Registro → Validación → Email de confirmación
+2. Confirmación → Código de 6 dígitos → Activación
+3. Login → Rate limiting → Sesión segura
+4. Recuperación → Email → Código → Nueva contraseña
+```
+
+### Características de Seguridad Auth
+- **Rate limiting**: Máximo 10 intentos por hora por IP
+- **Bloqueo temporal**: 15 minutos después de 5 intentos fallidos
+- **Validación robusta**: Todos los inputs validados en tiempo real
+- **Sanitización completa**: XSS prevention en todas las salidas
+- **Logging de seguridad**: Auditoría completa de eventos
+- **Sesiones seguras**: Tokens únicos con expiración
+- **Hash Argon2ID**: Contraseñas con algoritmo moderno
+
+### Sistema de Emails
+- **Usa mail() nativo** de PHP (sin dependencias externas)
+- **Templates HTML modernos** con diseño responsive
+- **Tipos de email**: Confirmación, recuperación, bienvenida
+- **Configuración flexible** en archivo .env
+- **Fallback graceful** si falla el envío
+
+### Tema Claro/Oscuro
+- **Detección automática** de preferencia del sistema
+- **Persistencia** en localStorage
+- **Toggle manual** en todas las páginas
+- **Transiciones suaves** entre temas
+- **Mobile-first** responsive design
+
+### Roles y Permisos
+```php
+const ROLES = [
+    'SUPER_ADMIN' => 1,    // Dueños del proyecto
+    'TECNICO' => 2,        // Técnicos que asisten ganaderos
+    'ADMIN_FINCA' => 3     // Administradores de finca
+];
+```
+
+### Integración con Dashboard Principal
+- **Redirección automática** al dashboard después del login
+- **Tokens de sesión** compartidos entre módulos
+- **Validación de dominio** para APIs
+- **Middleware de autenticación** para endpoints protegidos
+
+### Scripts de Utilidad
+```bash
+# Crear usuario de prueba
+php auth/create-test-user.php
+
+# Debug de login
+php auth/debug-login.php
+
+# Probar emails
+php auth/test-email.php
+
+# Generar token de aplicación
+php generate-app-token.php
+```
+
+### Configuración Requerida
+```env
+# Base de datos (compartida con módulo principal)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=telegan
+DB_USER=usuario_seguro
+DB_PASSWORD=password_muy_seguro
+
+# Aplicación
+APP_DOMAIN=telegan.espacialhn.com
+APP_TOKEN=token_generado_con_script
+APP_ENV=production
+
+# Email
+MAIL_FROM_NAME="Telegan Admin"
+MAIL_FROM_EMAIL=noreply@telegan.com
+MAIL_REPLY_TO=support@telegan.com
+```
+
+### Mejores Prácticas Auth
+- **NUNCA exponer información sensible** en logs
+- **SIEMPRE validar origen** de requests
+- **USAR transacciones** para operaciones críticas
+- **IMPLEMENTAR timeout** en sesiones
+- **LOGEAR eventos de seguridad** para auditoría
+- **SANITIZAR todos los inputs** antes de procesar
+- **USAR headers de seguridad** en todas las respuestas
+
+## SISTEMA DE SEGURIDAD GRADUAL IMPLEMENTADO
+
+### Arquitectura de Seguridad Actual
+- **Sistema híbrido**: Desarrollo flexible + Producción estricta
+- **Tokens de aplicación**: Validación entre frontend y backend
+- **Middleware gradual**: Activación progresiva sin romper funcionalidad
+- **Enmascaramiento preparado**: Ocultación de endpoints para producción
+
+### Componentes Implementados
+
+#### 1. Sistema de Tokens de Aplicación (`src/Config/AppToken.php`)
+```php
+// Genera hash basado en: timestamp + user_agent + secret + dominio
+// Validación temporal: máximo 5 minutos de diferencia
+// Bypass automático en desarrollo (APP_ENV=development)
+```
+
+#### 2. Middleware de Seguridad (`src/Middleware/SecurityMiddleware.php`)
+```php
+// Opciones de validación:
+SecurityMiddleware::publicApi();              // Solo logging
+SecurityMiddleware::requireAppToken(false);   // Token flexible (desarrollo)
+SecurityMiddleware::requireAuth(true);        // Autenticación completa (producción)
+```
+
+#### 3. Frontend con Tokens Automáticos (`public/js/ApiClient.js`)
+```javascript
+// Envía automáticamente:
+headers: {
+    'X-App-Token': 'hash_generado',
+    'X-App-Timestamp': 'timestamp'
+}
+```
+
+#### 4. Enmascaramiento de APIs (`src/Services/ApiMasking.php`)
+```php
+// Desarrollo: 'dashboard-data' → 'dashboard.php'
+// Producción: 'dashboard-data' → 'data_a1b2c3d4.php'
+```
+
+### Estado Actual de Seguridad
+
+| Aspecto | Estado | Nivel de Riesgo |
+|---------|--------|-----------------|
+| Credenciales | ✅ En .env | BAJO |
+| CORS | ⚠️ Abierto (desarrollo) | MEDIO |
+| Autenticación | 🔄 Preparado | BAJO |
+| Tokens | ✅ Implementados | BAJO |
+| Enmascaramiento | 🔄 Preparado | BAJO |
+| Headers Seguridad | ✅ Implementados | BAJO |
+
+### Implementación en APIs
+
+#### Patrón Estándar para Nuevas APIs
+```php
+<?php
+// Incluir middleware de seguridad
+require_once '../../src/Middleware/SecurityMiddleware.php';
+
+// Inicializar middleware
+SecurityMiddleware::init();
+
+// Configurar headers de respuesta
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *'); // Mantener abierto durante desarrollo
+
+// Manejar preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// VALIDACIÓN GRADUAL DE SEGURIDAD
+// Opción 1: Solo logging (desarrollo actual)
+SecurityMiddleware::publicApi();
+
+// Opción 2: Token de aplicación (cuando esté listo)
+// SecurityMiddleware::requireAppToken(false);
+
+// Opción 3: Autenticación completa (producción)
+// SecurityMiddleware::requireAuth(true);
+
+// Tu lógica de API aquí...
+?>
+```
+
+### Configuración de Desarrollo
+
+#### Variables de Entorno (.env)
+```env
+# Modo de desarrollo
+APP_ENV=development
+APP_DOMAIN=localhost
+APP_SECRET=telegan_default_secret
+APP_TOKEN=generado_automaticamente
+
+# Base de datos (credenciales seguras)
+DB_HOST=157.245.241.220
+DB_PORT=5432
+DB_NAME=telegan
+DB_USER=telegan
+DB_PASSWORD=telegan
+```
+
+#### Script de Configuración
+```bash
+# Ejecutar una vez para configurar seguridad
+php scripts/setup-security.php
+```
+
+### Plan de Migración a Producción
+
+#### Fase 1: Preparación (ACTUAL)
+- ✅ APIs funcionan sin validación
+- ✅ Tokens se generan y envían automáticamente
+- ✅ Logs de peticiones habilitados
+- ✅ Sistema preparado para validación
+
+#### Fase 2: Activación Gradual (CUANDO ESTÉS LISTO)
+```php
+// En cada API, cambiar de:
+SecurityMiddleware::publicApi();
+
+// A:
+SecurityMiddleware::requireAppToken(false); // false = flexible en desarrollo
+```
+
+#### Fase 3: Producción (CUANDO ESTÉ LISTO)
+```env
+# Cambiar en .env:
+APP_ENV=production
+APP_DOMAIN=tu-dominio-real.com
+```
+
+```php
+// En APIs, usar validación estricta:
+SecurityMiddleware::requireAuth(true);
+```
+
+#### Fase 4: Enmascaramiento (OPCIONAL)
+```php
+// Activar enmascaramiento de endpoints
+ApiMasking::generateMaskedFiles();
+```
+
+### Checklist de Migración a Producción
+
+#### Antes de Cambiar a Producción
+- [ ] Configurar APP_DOMAIN real
+- [ ] Cambiar APP_ENV=production
+- [ ] Revisar logs de seguridad
+- [ ] Probar todas las APIs con tokens
+- [ ] Configurar CORS restrictivo
+- [ ] Backup de base de datos
+
+#### Durante el Cambio
+- [ ] Activar validación gradualmente
+- [ ] Monitorear logs de errores
+- [ ] Verificar funcionamiento del frontend
+- [ ] Probar acceso directo a APIs (debe fallar)
+
+#### Después del Cambio
+- [ ] Verificar que APIs no funcionan sin tokens
+- [ ] Confirmar que frontend sigue funcionando
+- [ ] Revisar logs de seguridad
+- [ ] Activar enmascaramiento si se desea
+
+### Comandos de Utilidad
+
+#### Configuración Inicial
+```bash
+php scripts/setup-security.php
+```
+
+#### Verificar Logs
+```bash
+tail -f logs/security.log
+```
+
+#### Probar API con Token
+```bash
+curl -H "X-App-Token: hash" \
+     -H "X-App-Timestamp: timestamp" \
+     http://localhost/api/dashboard.php
+```
+
+### Respuesta a Vulnerabilidades Comunes
+
+#### "Si un usuario mira en consola las APIs, no podrá ejecutarlas"
+
+**Estado Actual (Desarrollo):**
+- 🔍 APIs visibles en consola
+- 🔍 APIs ejecutables sin validación
+- 🔍 Tokens enviados automáticamente
+
+**Estado Futuro (Producción):**
+- ✅ APIs protegidas con validación
+- ❌ Sin token válido = acceso denegado
+- ✅ Endpoints enmascarados (opcional)
+
+#### Protección Implementada
+1. **Tokens de aplicación**: Hash único por sesión
+2. **Validación temporal**: Máximo 5 minutos
+3. **Validación de dominio**: Solo desde dominio autorizado
+4. **Rate limiting**: Prevención de ataques de fuerza bruta
+5. **Headers de seguridad**: Protección contra XSS, clickjacking
+6. **Logs de auditoría**: Registro de todas las peticiones
+
+### Mejores Prácticas de Seguridad
+
+#### Desarrollo
+- **Mantener APP_ENV=development** durante desarrollo
+- **Revisar logs regularmente** para detectar patrones sospechosos
+- **Probar APIs sin tokens** para verificar que fallan
+- **Validar inputs** en todas las APIs
+
+#### Producción
+- **Cambiar APP_ENV=production** solo cuando esté listo
+- **Configurar dominio real** en APP_DOMAIN
+- **Activar validación estricta** en todas las APIs
+- **Monitorear logs de seguridad** constantemente
+- **Mantener backups** de configuración y base de datos
+
+### Archivos Críticos de Seguridad
+```
+src/Config/AppToken.php           # Sistema de tokens
+src/Middleware/SecurityMiddleware.php # Middleware de validación
+src/Services/ApiMasking.php       # Enmascaramiento de endpoints
+scripts/setup-security.php        # Configuración automática
+.env                              # Variables de entorno (NUNCA subir a Git)
+```
+
+### Notas Importantes
+- **El sistema NO rompe funcionalidad actual** durante desarrollo
+- **La migración es gradual** - puedes activar cuando quieras
+- **Los tokens son automáticos** - el frontend los envía sin cambios
+- **El enmascaramiento es opcional** - para máxima seguridad
+- **Los logs son críticos** - para auditoría y debugging

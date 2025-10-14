@@ -1,0 +1,28 @@
+RewriteEngine On
+
+# Redirigir todas las peticiones a index.php excepto archivos estáticos
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Configuración de seguridad
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block"
+
+# Configuración de caché para archivos estáticos
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 month"
+    Header append Cache-Control "public"
+</FilesMatch>
+
+# Prevenir acceso a archivos sensibles
+<FilesMatch "\.(env|log|ini)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+
+
+

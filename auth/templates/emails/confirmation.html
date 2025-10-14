@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirma tu cuenta - {{app_name}}</title>
+    <style>
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            line-height: 1.6; 
+            color: #1e293b; 
+            background: #f8fafc;
+            margin: 0; 
+            padding: 20px;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header { 
+            background: linear-gradient(135deg, #6dbe45 0%, #4da1d9 100%); 
+            color: white; 
+            padding: 30px; 
+            text-align: center; 
+        }
+        .header h1 { 
+            margin: 0; 
+            font-size: 24px; 
+            font-weight: 600; 
+        }
+        .content { 
+            padding: 30px; 
+        }
+        .content h2 { 
+            color: #1e293b; 
+            margin-bottom: 20px; 
+            font-size: 20px;
+        }
+        .content p { 
+            margin-bottom: 16px; 
+            color: #64748b;
+        }
+        .verification-code { 
+            background: #f8f9fa; 
+            padding: 30px; 
+            text-align: center; 
+            margin: 30px 0; 
+            border-radius: 12px;
+            border: 2px dashed #e2e8f0;
+        }
+        .verification-code h1 { 
+            color: #6dbe45; 
+            font-size: 36px; 
+            margin: 0; 
+            letter-spacing: 12px; 
+            font-weight: 700;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+        .verification-code p { 
+            color: #64748b; 
+            margin-top: 10px; 
+            font-size: 14px;
+        }
+        .security-note { 
+            background: #fef3c7; 
+            border: 1px solid #f59e0b; 
+            padding: 16px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+        }
+        .security-note p { 
+            margin: 0; 
+            color: #92400e; 
+            font-size: 14px;
+        }
+        .footer { 
+            background: #f8fafc; 
+            padding: 20px; 
+            text-align: center; 
+            color: #64748b; 
+            font-size: 14px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer a { 
+            color: #6dbe45; 
+            text-decoration: none; 
+        }
+        .icon { 
+            width: 64px; 
+            height: 64px; 
+            margin: 0 auto 20px; 
+            background: rgba(255, 255, 255, 0.2); 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        .icon svg { 
+            width: 32px; 
+            height: 32px; 
+        }
+        @media (max-width: 600px) {
+            .container { margin: 0; border-radius: 0; }
+            .header, .content { padding: 20px; }
+            .verification-code h1 { font-size: 28px; letter-spacing: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h1>{{app_name}}</h1>
+        </div>
+        <div class="content">
+            <h2>¡Hola {{name}}!</h2>
+            <p>Gracias por registrarte en <strong>{{app_name}}</strong>. Para activar tu cuenta y comenzar a usar el panel administrativo, necesitamos verificar tu dirección de email.</p>
+            
+            <p>Para activar tu cuenta, simplemente haz clic en el botón de abajo:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{verification_link}}" style="display: inline-block; background: linear-gradient(135deg, #6dbe45 0%, #4da1d9 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                    ✅ Activar Mi Cuenta
+                </a>
+            </div>
+            
+            <p><strong>⏰ El link y código son válidos por 1 hora</strong> por motivos de seguridad.</p>
+            
+            <div class="security-note">
+                <p><strong>🔒 Información de seguridad:</strong> Si no solicitaste crear esta cuenta, puedes ignorar este email de forma segura. Tu dirección de email no será utilizada para ningún otro propósito.</p>
+            </div>
+            
+            <p>Una vez activada tu cuenta, podrás:</p>
+            <ul style="color: #64748b;">
+                <li>Acceder al panel administrativo</li>
+                <li>Gestionar usuarios y fincas</li>
+                <li>Ver estadísticas y reportes</li>
+                <li>Configurar el sistema</li>
+            </ul>
+        </div>
+        <div class="footer">
+            <p>Este email fue enviado desde {{app_name}}</p>
+            <p>Si tienes problemas con la activación, contacta a <a href="mailto:support@telegan.com">support@telegan.com</a></p>
+            <p><small>© 2025 Telegan. Todos los derechos reservados.</small></p>
+        </div>
+    </div>
+</body>
+</html>
+
