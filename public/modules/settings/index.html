@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración - Telegan Admin</title>
+    <link rel="stylesheet" href="../../css/styles.css">
+    <style>
+        .module-header {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .module-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .breadcrumb {
+            background: var(--bg-secondary);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .breadcrumb a {
+            color: var(--accent-primary);
+            text-decoration: none;
+        }
+        
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
+        .content-area {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .coming-soon {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .coming-soon h2 {
+            color: var(--accent-primary);
+            margin-bottom: 1rem;
+        }
+        
+        .coming-soon p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+        
+        .back-button {
+            display: inline-block;
+            background: var(--gradient-primary);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(109, 190, 69, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb">
+        <a href="../../index.html">🏠 Inicio</a> > 
+        <a href="../index.html">Módulos</a> > 
+        <span>Configuración</span>
+    </nav>
+
+    <!-- Module Header -->
+    <header class="module-header">
+        <h1>⚙️ Configuración del Sistema</h1>
+        <p>Configuración del sistema, base de datos y parámetros generales</p>
+    </header>
+
+    <!-- Content Area -->
+    <div class="content-area">
+        <div class="coming-soon">
+            <h2>🚧 Módulo en Desarrollo</h2>
+            <p>El módulo de configuración está siendo desarrollado.</p>
+            <p>Próximamente podrás:</p>
+            <ul style="text-align: left; max-width: 400px; margin: 0 auto 2rem;">
+                <li>Configurar conexión a base de datos</li>
+                <li>Gestionar variables de entorno</li>
+                <li>Configurar emails y notificaciones</li>
+                <li>Gestionar tokens de aplicación</li>
+                <li>Configurar seguridad</li>
+                <li>Ver logs del sistema</li>
+            </ul>
+            <a href="../../index.html" class="back-button">Volver al Inicio</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -15,7 +15,7 @@ AuthSecurity::init();
 
 // Si ya está logueado, redirigir al dashboard
 if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
-    header('Location: ../public/dashboard.html');
+    header('Location: ../public/dashboard.php');
     exit;
 }
 
@@ -83,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['admin_email'] = $user['email'];
                         $_SESSION['admin_role'] = $user['rol'];
                         $_SESSION['session_token'] = $sessionToken;
+                        $_SESSION['session_timestamp'] = time(); // Timestamp para validar expiración
                         
                         // Log de login exitoso
                         AuthSecurity::logSecurityEvent('LOGIN_SUCCESS', [
@@ -92,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ], 'INFO');
                         
                         // Redirigir al dashboard
-                        header('Location: ../public/dashboard.html');
+                        header('Location: ../public/dashboard.php');
                         exit;
                     }
                 } else {

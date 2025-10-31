@@ -19,6 +19,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup event listeners (including tabs)
     setupEventListeners();
+
+    // Sidebar collapsed state (persistido + colapsado por defecto en desktop)
+    try {
+        const saved = localStorage.getItem('sidebarCollapsed');
+        if (saved === 'true') {
+            document.body.classList.add('sidebar-collapsed');
+        } else if (saved === null && window.innerWidth >= 1024) {
+            document.body.classList.add('sidebar-collapsed');
+        }
+    } catch (_) {}
     
     // Load initial data (operational data by default)
     loadOperationalData();
@@ -509,6 +519,12 @@ function setupSearchSystem() {
     const searchResults = document.getElementById('search-results');
     const userProfile = document.getElementById('user-profile');
 
+    // Si no existen los elementos de búsqueda, salir silenciosamente
+    if (!searchToggle || !searchModal || !searchInput || !searchResults) {
+        console.warn('Elementos de búsqueda no encontrados, sistema de búsqueda deshabilitado');
+        return;
+    }
+
     let searchTimeout;
 
     // Open search modal
@@ -567,11 +583,11 @@ function setupSearchSystem() {
             clearTimeout(searchTimeout);
         }
 
-        // Debounce search
+        // Debounce search (500ms para evitar múltiples peticiones rápidas)
         if (query.length >= 2) {
             searchTimeout = setTimeout(() => {
                 performSearch(query);
-            }, 300);
+            }, 500);
         } else {
             showEmptyState();
         }
@@ -606,7 +622,12 @@ function setupSearchSystem() {
             }
         } catch (error) {
             console.error('Error en búsqueda:', error);
-            showSearchError('Error de conexión');
+            // Si es error de conexión, dar mensaje más claro
+            if (error.message && error.message.includes('conexión')) {
+                showSearchError('Error de conexión. Espera un momento e intenta de nuevo.');
+            } else {
+                showSearchError('Error al buscar. Intenta de nuevo.');
+            }
         }
     }
 
@@ -1134,9 +1155,9 @@ function initializeFarmMap(farm) {
         return;
     }
     
-    // Add tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
+    // Add satellite tile layer (Esri World Imagery)
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '© Esri &mdash; Source: Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
         maxZoom: 18
     }).addTo(currentFarmMap);
     
@@ -1164,6 +1185,15 @@ function parseFarmGeometry(farm) {
     // Prefer GeoJSON (from PostGIS)
     if (farm.geojson) {
         console.log('Using GeoJSON geometry:', farm.geojson);
+        // If it's a Geometry object, wrap it in a Feature for consistency
+        if (farm.geojson.type === 'Point' || farm.geojson.type === 'Polygon' || farm.geojson.type === 'MultiPolygon') {
+            return {
+                type: 'Feature',
+                geometry: farm.geojson,
+                properties: {}
+            };
+        }
+        // If it's already a Feature or FeatureCollection, return as is
         return farm.geojson;
     }
     
@@ -1380,6 +1410,9 @@ function addGeometryToMap(map, geometry, farm) {
 
 // Show map when no geometry available
 function showMapNoGeometry(container, farm) {
+    // Store farm data globally for button click
+    window.currentFarmForMap = farm;
+    
     container.innerHTML = `
         <div class="map-no-geometry">
             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
@@ -1389,11 +1422,128 @@ function showMapNoGeometry(container, farm) {
             <h4>Sin Ubicación Geográfica</h4>
             <p>Esta finca no tiene coordenadas registradas</p>
             <small>${sanitizeHTML(farm.nombre_finca)} - ${sanitizeHTML(farm.nombre_pais || 'País no especificado')}</small>
-            <div class="map-suggestion">
-                <p>💡 <strong>Sugerencia:</strong> Contactar al administrador para agregar ubicación GPS</p>
-            </div>
+            ${farm.tiene_geometria ? `
+                <button class="btn btn-primary load-map-btn" onclick="loadFarmMapWithGeometry(${farm.id_finca})" style="margin-top: 16px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    Cargar Mapa
+                </button>
+            ` : `
+                <div class="map-suggestion">
+                    <p>💡 <strong>Sugerencia:</strong> Contactar al administrador para agregar ubicación GPS</p>
+                </div>
+            `}
         </div>
     `;
+}
+
+// Load farm map with geometry from API
+async function loadFarmMapWithGeometry(farmId) {
+    const mapContainer = document.getElementById('farm-map');
+    
+    // Show loading state
+    mapContainer.innerHTML = `
+        <div class="map-loading">
+            <div class="loading-spinner"></div>
+            <p>Cargando mapa...</p>
+        </div>
+    `;
+    
+    try {
+        const api = new ApiClient();
+        const response = await api.get(`farm-details.php?farm_id=${farmId}`);
+        
+        if (response.success && response.data && response.data.farm) {
+            const farm = response.data.farm;
+            
+            // Check if we have geometry
+            if (!farm.geojson && !farm.geometria_wkt && !farm.geometria_postgis) {
+                showMapNoGeometry(mapContainer, farm);
+                showNotification('Esta finca no tiene geometría disponible', 'warning');
+                return;
+            }
+            
+            // Initialize map with satellite layer
+            initializeFarmMapWithSatellite(farm);
+        } else {
+            throw new Error('No se pudieron cargar los datos de la finca');
+        }
+    } catch (error) {
+        console.error('Error loading farm map:', error);
+        showMapError(mapContainer, 'Error al cargar el mapa. Por favor, intenta nuevamente.');
+        showNotification('Error al cargar el mapa', 'error');
+    }
+}
+
+// Initialize farm map with satellite layer
+function initializeFarmMapWithSatellite(farm) {
+    const mapContainer = document.getElementById('farm-map');
+    
+    // Clear previous map
+    if (currentFarmMap) {
+        try {
+            currentFarmMap.remove();
+        } catch (error) {
+            console.warn('Error removing previous map:', error);
+        }
+        currentFarmMap = null;
+    }
+    
+    // Clear container
+    mapContainer.innerHTML = '';
+    
+    try {
+        // Initialize map
+        currentFarmMap = L.map('farm-map', {
+            center: [15.45, -90.35], // Default center (Guatemala)
+            zoom: 15,
+            zoomControl: true,
+            attributionControl: true
+        });
+        
+        // Add satellite tile layer (Esri World Imagery)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri &mdash; Source: Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
+            maxZoom: 18
+        }).addTo(currentFarmMap);
+        
+        // Get geometry
+        const geometry = parseFarmGeometry(farm);
+        
+        if (geometry) {
+            // Add geometry to map
+            const added = addGeometryToMap(currentFarmMap, geometry, farm);
+            
+            if (added) {
+                // Fit map to geometry bounds
+                if (geometry.type === 'Feature' && geometry.geometry) {
+                    const geoJSONLayer = L.geoJSON(geometry);
+                    const bounds = geoJSONLayer.getBounds();
+                    if (bounds.isValid()) {
+                        currentFarmMap.fitBounds(bounds, { padding: [20, 20] });
+                    }
+                } else if (geometry.type === 'polygon' && geometry.coordinates) {
+                    const polygonLayer = L.polygon(geometry.coordinates);
+                    const bounds = polygonLayer.getBounds();
+                    if (bounds.isValid()) {
+                        currentFarmMap.fitBounds(bounds, { padding: [20, 20] });
+                    }
+                }
+                
+                showNotification('Mapa cargado correctamente', 'success');
+            } else {
+                throw new Error('No se pudo agregar la geometría al mapa');
+            }
+        } else {
+            throw new Error('No se pudo parsear la geometría');
+        }
+    } catch (error) {
+        console.error('Error initializing map:', error);
+        showMapError(mapContainer, 'Error al inicializar el mapa: ' + error.message);
+        showNotification('Error al cargar el mapa', 'error');
+    }
 }
 
 // Show map error
@@ -1461,6 +1611,12 @@ function setupFarmModal() {
     const farmModal = document.getElementById('farm-main-modal');
     const farmClose = document.getElementById('farm-close');
     
+    // Si no existen los elementos del modal, salir silenciosamente
+    if (!farmModal || !farmClose) {
+        console.warn('Elementos del modal de finca no encontrados, sistema deshabilitado');
+        return;
+    }
+    
     // Close farm modal
     farmClose.addEventListener('click', () => {
         farmModal.classList.remove('show');
@@ -1504,6 +1660,7 @@ function setupEventListeners() {
     // Mobile menu toggle
     const menuToggle = document.getElementById('menuToggle');
     const sidebar = document.getElementById('sidebar');
+    const collapseToggle = document.getElementById('collapseToggle');
     
     if (menuToggle && sidebar) {
         menuToggle.addEventListener('click', () => {
@@ -1514,6 +1671,16 @@ function setupEventListeners() {
             } else {
                 document.removeEventListener('click', closeSidebarOnOutsideClick);
             }
+        });
+    }
+
+    // Desktop collapse toggle (viñeta persistente)
+    if (collapseToggle) {
+        collapseToggle.addEventListener('click', () => {
+            document.body.classList.toggle('sidebar-collapsed');
+            try {
+                localStorage.setItem('sidebarCollapsed', document.body.classList.contains('sidebar-collapsed') ? 'true' : 'false');
+            } catch (_) {}
         });
     }
     

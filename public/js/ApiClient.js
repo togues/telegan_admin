@@ -2,20 +2,81 @@
  * ApiClient - Cliente para manejo de peticiones HTTP
  * Maneja comunicación con la API usando variables en memoria (sin localStorage)
  */
+import { AppConfig } from './config.js';
+
 class ApiClient {
     constructor() {
-        // Rutas completamente relativas - funcionan desde cualquier ubicación
-        this.baseURL = 'api';
+        // Usar la base URL configurada en AppConfig (absoluta desde origin)
+        this.baseURL = AppConfig.apiBaseUrl;
         // Usar variable en memoria en lugar de localStorage
         this.token = window.adminToken || null;
-        // Token de aplicación para validación
-        this.appToken = window.appToken || null;
+        // Token de sesión persistente (viene desde PHP o se obtiene al iniciar)
+        this.sessionToken = window.sessionToken || null;
+        // Promesa de inicialización de sesión (para evitar race conditions)
+        this._sessionInitPromise = null;
         
         console.log('API Base URL:', this.baseURL);
+        console.log('Session Token disponible:', this.sessionToken ? 'Sí (desde PHP)' : 'No');
         
-        // Generar token de aplicación si no existe
-        if (!this.appToken) {
-            this.generateAppToken();
+        // Inicializar sesión SOLO si no existe token (el token viene desde PHP en páginas PHP)
+        if (!this.sessionToken) {
+            console.log('No hay token desde PHP, inicializando sesión...');
+            this._sessionInitPromise = this.initSession();
+        }
+    }
+    
+    /**
+     * Esperar a que la sesión esté inicializada
+     */
+    async waitForSession() {
+        // Verificar nuevamente window.sessionToken (puede haberse establecido desde PHP después de que ApiClient se creó)
+        if (!this.sessionToken && window.sessionToken) {
+            this.sessionToken = window.sessionToken;
+            console.log('Token de sesión detectado desde window.sessionToken');
+        }
+        
+        if (this.sessionToken) {
+            return; // Ya tiene token
+        }
+        
+        if (this._sessionInitPromise) {
+            await this._sessionInitPromise; // Esperar que termine la inicialización
+        }
+        
+        // Verificar una vez más después de esperar
+        if (!this.sessionToken && window.sessionToken) {
+            this.sessionToken = window.sessionToken;
+            console.log('Token de sesión detectado después de initSession');
+        }
+    }
+    
+    /**
+     * Inicializar sesión y obtener token persistente
+     */
+    async initSession() {
+        try {
+            const response = await fetch(`${this.baseURL}/init-session.php`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getHeaders(`${this.baseURL}/init-session.php`, false)
+                }
+            });
+            
+            if (!response.ok) {
+                console.warn('No se pudo inicializar sesión, usando tokens por petición');
+                return;
+            }
+            
+            const data = await response.json();
+            if (data.success && data.data.session_token) {
+                this.sessionToken = data.data.session_token;
+                window.sessionToken = this.sessionToken;
+                console.log('Sesión iniciada correctamente');
+            }
+        } catch (error) {
+            console.warn('Error al inicializar sesión:', error);
+            // Continuar sin sesión (usará tokens por petición como fallback)
         }
     }
 
@@ -28,59 +89,75 @@ class ApiClient {
     }
 
     /**
-     * Generar token de aplicación
+     * Construir path completo para validación del token
      */
-    generateAppToken() {
-        const timestamp = Math.floor(Date.now() / 1000);
-        const userAgent = navigator.userAgent;
-        const secret = 'telegan_default_secret'; // En producción, esto vendrá del servidor
-        const domain = window.location.hostname;
+    buildFullPath(url) {
+        // Si ya es un path absoluto que empieza con /, devolverlo
+        if (url.startsWith('/')) {
+            return url;
+        }
         
-        // Crear string de validación
-        const validationString = timestamp + userAgent + secret + domain;
+        // Obtener base path desde la URL actual
+        const currentPath = window.location.pathname;
+        let basePath = '';
         
-        // Generar hash SHA-256 (simplificado para demo)
-        const hash = this.simpleHash(validationString);
+        // Extraer base path: encontrar /public/ y usar todo lo anterior
+        // Ejemplos:
+        // /TELEGAN_ADMIN/public/dashboard.html -> /TELEGAN_ADMIN/public
+        // /TELEGAN_ADMIN/public/modules/users/ -> /TELEGAN_ADMIN/public
+        const publicMatch = currentPath.match(/^(.+\/public)/);
+        if (publicMatch) {
+            basePath = publicMatch[1]; // /TELEGAN_ADMIN/public
+        } else {
+            // Si no hay /public/, buscar /modules/ o /dashboard
+            if (currentPath.includes('/modules/')) {
+                basePath = currentPath.split('/modules/')[0] + '/public';
+            } else if (currentPath.includes('/dashboard')) {
+                basePath = currentPath.split('/dashboard')[0] + '/public';
+            } else {
+                // Fallback: usar path actual sin el nombre del archivo
+                basePath = currentPath.substring(0, currentPath.lastIndexOf('/'));
+            }
+        }
         
-        this.appToken = {
-            hash: hash,
-            timestamp: timestamp
-        };
+        // Construir path completo: /TELEGAN_ADMIN/public/api/dashboard.php
+        if (url.startsWith('api/')) {
+            return basePath + '/api/' + url.substring(4); // Quitar 'api/' del inicio
+        }
         
-        window.appToken = this.appToken;
-        
-        console.log('App Token generado:', this.appToken);
+        return basePath + '/' + url;
     }
     
     /**
-     * Hash simple para demo (en producción usar crypto.subtle)
+     * Obtener headers por defecto con autenticación API
      */
-    simpleHash(str) {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Convertir a 32bit integer
-        }
-        return Math.abs(hash).toString(16);
-    }
-
-    /**
-     * Obtener headers por defecto
-     */
-    getHeaders(includeAuth = true, includeAppToken = true) {
+    getHeaders(url = '', includeAuth = true) {
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         };
 
+        // Usar token de sesión si está disponible (preferido)
+        if (this.sessionToken) {
+            headers['X-Session-Token'] = this.sessionToken;
+        } else {
+            // Fallback a token por petición (legacy)
+            let urlPath = url;
+            if (urlPath.includes('?')) {
+                urlPath = urlPath.split('?')[0];
+            }
+            if (urlPath.includes('#')) {
+                urlPath = urlPath.split('#')[0];
+            }
+            urlPath = this.buildFullPath(urlPath);
+            const authHeaders = AppConfig.getAuthHeaders(urlPath);
+            headers['X-API-Token'] = authHeaders['X-API-Token'];
+            headers['X-API-Timestamp'] = authHeaders['X-API-Timestamp'];
+        }
+
+        // Token de usuario si está disponible
         if (includeAuth && this.token) {
             headers['Authorization'] = `Bearer ${this.token}`;
-        }
-        
-        if (includeAppToken && this.appToken) {
-            headers['X-App-Token'] = this.appToken.hash;
-            headers['X-App-Timestamp'] = this.appToken.timestamp.toString();
         }
 
         return headers;
@@ -110,15 +187,25 @@ class ApiClient {
      */
     async get(endpoint, includeAuth = true) {
         try {
-            // Asegurar que haya una barra entre baseURL y endpoint
-            const url = endpoint.startsWith('/') 
-                ? `${this.baseURL}${endpoint}` 
-                : `${this.baseURL}/${endpoint}`;
+            // Esperar a que la sesión esté inicializada antes de hacer la petición
+            await this.waitForSession();
+            
+            // Si el endpoint ya incluye 'api/', solo usar el nombre del archivo
+            // api/users-list.php -> users-list.php (baseURL ya tiene /api)
+            let cleanEndpoint = endpoint;
+            if (endpoint.startsWith('api/')) {
+                cleanEndpoint = endpoint.substring(4); // Quitar 'api/'
+            } else if (endpoint.startsWith('/api/')) {
+                cleanEndpoint = endpoint.substring(5); // Quitar '/api/'
+            }
+            
+            // Construir URL final
+            const url = `${this.baseURL}/${cleanEndpoint}`;
                 
             console.log('GET URL:', url);
             const response = await fetch(url, {
                 method: 'GET',
-                headers: this.getHeaders(includeAuth)
+                headers: this.getHeaders(url, includeAuth)
             });
 
             return await this.handleResponse(response);
@@ -133,13 +220,22 @@ class ApiClient {
      */
     async post(endpoint, data = {}, includeAuth = false) {
         try {
-            const url = endpoint.startsWith('/') 
-                ? `${this.baseURL}${endpoint}` 
-                : `${this.baseURL}/${endpoint}`;
+            // Esperar a que la sesión esté inicializada antes de hacer la petición
+            await this.waitForSession();
+            
+            // Limpiar endpoint si incluye 'api/'
+            let cleanEndpoint = endpoint;
+            if (endpoint.startsWith('api/')) {
+                cleanEndpoint = endpoint.substring(4);
+            } else if (endpoint.startsWith('/api/')) {
+                cleanEndpoint = endpoint.substring(5);
+            }
+            
+            const url = `${this.baseURL}/${cleanEndpoint}`;
                 
             const response = await fetch(url, {
                 method: 'POST',
-                headers: this.getHeaders(includeAuth),
+                headers: this.getHeaders(url, includeAuth),
                 body: JSON.stringify(data)
             });
 
@@ -155,13 +251,22 @@ class ApiClient {
      */
     async put(endpoint, data = {}, includeAuth = true) {
         try {
-            const url = endpoint.startsWith('/') 
-                ? `${this.baseURL}${endpoint}` 
-                : `${this.baseURL}/${endpoint}`;
+            // Esperar a que la sesión esté inicializada antes de hacer la petición
+            await this.waitForSession();
+            
+            // Limpiar endpoint si incluye 'api/'
+            let cleanEndpoint = endpoint;
+            if (endpoint.startsWith('api/')) {
+                cleanEndpoint = endpoint.substring(4);
+            } else if (endpoint.startsWith('/api/')) {
+                cleanEndpoint = endpoint.substring(5);
+            }
+            
+            const url = `${this.baseURL}/${cleanEndpoint}`;
                 
             const response = await fetch(url, {
                 method: 'PUT',
-                headers: this.getHeaders(includeAuth),
+                headers: this.getHeaders(url, includeAuth),
                 body: JSON.stringify(data)
             });
 
@@ -177,13 +282,22 @@ class ApiClient {
      */
     async delete(endpoint, includeAuth = true) {
         try {
-            const url = endpoint.startsWith('/') 
-                ? `${this.baseURL}${endpoint}` 
-                : `${this.baseURL}/${endpoint}`;
+            // Esperar a que la sesión esté inicializada antes de hacer la petición
+            await this.waitForSession();
+            
+            // Limpiar endpoint si incluye 'api/'
+            let cleanEndpoint = endpoint;
+            if (endpoint.startsWith('api/')) {
+                cleanEndpoint = endpoint.substring(4);
+            } else if (endpoint.startsWith('/api/')) {
+                cleanEndpoint = endpoint.substring(5);
+            }
+            
+            const url = `${this.baseURL}/${cleanEndpoint}`;
                 
             const response = await fetch(url, {
                 method: 'DELETE',
-                headers: this.getHeaders(includeAuth)
+                headers: this.getHeaders(url, includeAuth)
             });
 
             return await this.handleResponse(response);

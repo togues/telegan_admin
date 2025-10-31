@@ -150,3 +150,11 @@ COMMENT ON TABLE security_logs IS 'Logs de seguridad y auditoría';
 COMMENT ON TABLE pending_confirmations IS 'Confirmaciones pendientes de email';
 
 
+
+
+
+
+
+
+
+

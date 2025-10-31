@@ -6,8 +6,9 @@
  * que NO rompe funcionalidad durante desarrollo
  */
 
-// Incluir middleware de seguridad
+// Incluir middleware de seguridad y autenticación API
 require_once '../../src/Middleware/SecurityMiddleware.php';
+require_once '../../src/Config/ApiAuth.php';
 
 // Inicializar middleware
 SecurityMiddleware::init();
@@ -16,7 +17,7 @@ SecurityMiddleware::init();
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *'); // Mantener abierto durante desarrollo
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-App-Token, X-App-Timestamp');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Token, X-API-Timestamp, X-Session-Token');
 
 // Manejar preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -44,6 +45,13 @@ try {
     // Verificar método HTTP
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         handleError('Método no permitido', 405);
+    }
+    
+    // Validar token de autenticación (ApiAuth normaliza el path automáticamente)
+    $validation = ApiAuth::validateRequest();
+    
+    if (!$validation['valid']) {
+        handleError('Acceso no autorizado: ' . ($validation['error'] ?? 'Token inválido'), 401);
     }
 
     // VALIDACIÓN GRADUAL DE SEGURIDAD

@@ -16,7 +16,7 @@ AuthSecurity::init();
 
 // Si ya está logueado, redirigir al dashboard
 if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
-    header('Location: ../public/dashboard.html');
+    header('Location: ../public/dashboard.php');
     exit;
 }
 
@@ -77,59 +77,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 AuthDatabase::beginTransaction();
                 
                 try {
-                    // Insertar usuario (inactivo hasta confirmar email)
-                    $userSql = "INSERT INTO admin_users (nombre_completo, email, password_hash, telefono, codigo_confirmacion, token_confirmacion, expiracion_confirmacion) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    // Insertar usuario ACTIVADO AUTOMÁTICAMENTE (sin validación de email)
+                    $userSql = "INSERT INTO admin_users (nombre_completo, email, password_hash, telefono, activo, email_verificado, rol) 
+                               VALUES (?, ?, ?, ?, true, true, 'TECNICO')";
                     $userParams = [
                         $nombre,
                         $email,
                         $passwordHash,
-                        $telefono ?: null,
-                        $confirmationCode,
-                        $confirmationToken,
-                        $expirationTime
+                        $telefono ?: null
                     ];
                     
                     $userId = AuthDatabase::insert($userSql, $userParams, 'USER_REGISTERED');
-                    
-                    // Insertar confirmación pendiente
-                    $confirmSql = "INSERT INTO pending_confirmations (email, codigo_confirmacion, token_confirmacion, tipo_confirmacion, fecha_expiracion) 
-                                  VALUES (?, ?, ?, ?, ?)";
-                    $confirmParams = [
-                        $email,
-                        $confirmationCode,
-                        $confirmationToken,
-                        'REGISTER',
-                        $expirationTime
-                    ];
-                    
-                    AuthDatabase::insert($confirmSql, $confirmParams, 'CONFIRMATION_CREATED');
-                    
-                    // Enviar email de confirmación con link automático
-                    $emailSent = EmailManager::sendConfirmationEmail($email, $nombre, $confirmationCode, $confirmationToken);
-                    
-                    if (!$emailSent) {
-                        // Log del error pero no fallar el registro
-                        AuthSecurity::logSecurityEvent('EMAIL_SEND_FAILED', ['email' => $email], 'WARNING');
-                    }
                     
                     // Confirmar transacción
                     AuthDatabase::commit();
                     
                     // Log de registro exitoso
-                    AuthSecurity::logSecurityEvent('USER_REGISTERED', [
+                    AuthSecurity::logSecurityEvent('USER_REGISTERED_AUTO_ACTIVATED', [
                         'email' => $email,
-                        'user_id' => $userId
+                        'user_id' => $userId,
+                        'auto_activated' => true
                     ], 'INFO');
                     
-                    // Redirigir a página de confirmación
-                    $_SESSION['pending_confirmation'] = [
-                        'email' => $email,
-                        'confirmation_code' => $confirmationCode,
-                        'confirmation_token' => $confirmationToken
-                    ];
+                    // Crear sesión automáticamente
+                    $_SESSION['admin_logged_in'] = true;
+                    $_SESSION['admin_user_id'] = $userId;
+                    $_SESSION['admin_email'] = $email;
+                    $_SESSION['admin_nombre'] = $nombre;
+                    $_SESSION['admin_rol'] = 'TECNICO';
                     
-                    header('Location: confirm.php');
+                    // Redirigir directamente al dashboard
+                    header('Location: ../public/dashboard.php');
                     exit;
                     
                 } catch (Exception $e) {

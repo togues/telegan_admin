@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegan Admin - Panel de Control</title>
+    <link rel="stylesheet" href="public/css/styles.css">
+    <style>
+        /* Estilos específicos para la página principal */
+        .hero-section {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 4rem 2rem;
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .hero-section h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        
+        .hero-section p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .navigation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+        
+        .nav-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .nav-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--accent-primary);
+        }
+        
+        .nav-card h3 {
+            color: var(--accent-primary);
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .nav-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        
+        .nav-button {
+            display: inline-block;
+            background: var(--gradient-primary);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .nav-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(109, 190, 69, 0.3);
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-online { background: #10b981; }
+        .status-offline { background: #ef4444; }
+        .status-warning { background: #f59e0b; }
+        
+        .quick-stats {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 3rem auto;
+            max-width: 1200px;
+        }
+        
+        .quick-stats h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        @media (max-width: 768px) {
+            .hero-section h1 {
+                font-size: 2rem;
+            }
+            
+            .navigation-grid {
+                grid-template-columns: 1fr;
+                padding: 0 1rem;
+            }
+            
+            .nav-card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <h1>🌱 Telegan Admin</h1>
+            </div>
+            <div class="header-actions">
+                <span class="status-indicator status-online"></span>
+                <span>Sistema Activo</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <h1>Panel de Control Telegan</h1>
+        <p>Gestiona usuarios, fincas, potreros y registros ganaderos de forma eficiente</p>
+    </section>
+
+    <!-- Quick Stats -->
+    <section class="quick-stats">
+        <h2>Resumen del Sistema</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number" id="total-users">-</div>
+                <div class="stat-label">Usuarios</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="total-farms">-</div>
+                <div class="stat-label">Fincas</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="total-pastures">-</div>
+                <div class="stat-label">Potreros</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="total-records">-</div>
+                <div class="stat-label">Registros</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Navigation Grid -->
+    <section class="navigation-grid">
+        <!-- Dashboard -->
+        <div class="nav-card">
+            <h3>📊 Dashboard</h3>
+            <p>Vista general del sistema con estadísticas, alertas y métricas clave</p>
+            <a href="public/dashboard.html" class="nav-button">Ir al Dashboard</a>
+        </div>
+
+        <!-- Usuarios -->
+        <div class="nav-card">
+            <h3>👥 Gestión de Usuarios</h3>
+            <p>Administra usuarios del sistema, roles, permisos y datos demográficos</p>
+            <a href="public/modules/users/" class="nav-button">Gestionar Usuarios</a>
+        </div>
+
+        <!-- Fincas -->
+        <div class="nav-card">
+            <h3>🏡 Gestión de Fincas</h3>
+            <p>Administra fincas, potreros, geometrías y asociaciones de usuarios</p>
+            <a href="public/modules/farms/" class="nav-button">Gestionar Fincas</a>
+        </div>
+
+        <!-- Registros Ganaderos -->
+        <div class="nav-card">
+            <h3>🐄 Registros Ganaderos</h3>
+            <p>Gestiona registros de ganado, pastos, agua y ubicaciones</p>
+            <a href="public/modules/records/" class="nav-button">Ver Registros</a>
+        </div>
+
+        <!-- Autenticación -->
+        <div class="nav-card">
+            <h3>🔐 Sistema de Auth</h3>
+            <p>Login, registro, recuperación de contraseña y gestión de sesiones</p>
+            <a href="auth/login.php" class="nav-button">Ir a Login</a>
+        </div>
+
+        <!-- Configuración -->
+        <div class="nav-card">
+            <h3>⚙️ Configuración</h3>
+            <p>Configuración del sistema, base de datos y parámetros generales</p>
+            <a href="public/modules/settings/" class="nav-button">Configurar</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 3rem 2rem; color: var(--text-secondary); margin-top: 4rem;">
+        <p>&copy; 2025 Telegan Admin Panel. Sistema de gestión ganadera.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.9rem;">
+            <a href="public/api/dashboard.php" style="color: var(--accent-primary);">API Dashboard</a> | 
+            <a href="auth/login.php" style="color: var(--accent-primary);">Login</a> | 
+            <a href="auth/register.php" style="color: var(--accent-primary);">Registro</a>
+        </p>
+    </footer>
+
+    <script>
+        // Cargar estadísticas rápidas
+        async function loadQuickStats() {
+            try {
+                const response = await fetch('public/api/dashboard.php');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('total-users').textContent = data.stats?.total_usuarios || '0';
+                    document.getElementById('total-farms').textContent = data.stats?.total_fincas || '0';
+                    document.getElementById('total-pastures').textContent = data.stats?.total_potreros || '0';
+                    document.getElementById('total-records').textContent = data.stats?.total_registros || '0';
+                }
+            } catch (error) {
+                console.log('No se pudieron cargar las estadísticas:', error);
+                // Mostrar valores por defecto
+                document.getElementById('total-users').textContent = '0';
+                document.getElementById('total-farms').textContent = '0';
+                document.getElementById('total-pastures').textContent = '0';
+                document.getElementById('total-records').textContent = '0';
+            }
+        }
+
+        // Cargar estadísticas al cargar la página
+        document.addEventListener('DOMContentLoaded', loadQuickStats);
+    </script>
+</body>
+</html>

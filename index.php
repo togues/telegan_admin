@@ -18,8 +18,8 @@ $path = trim($path, '/');
 
 // Routing manual
 if (empty($path) || $path === 'index.php') {
-    // Página principal - redirigir al dashboard
-    header('Location: public/dashboard.html');
+    // Página principal - mostrar menú de navegación
+    header('Location: index.html');
     exit();
 } elseif (strpos($path, 'api/') === 0) {
     // Rutas de API

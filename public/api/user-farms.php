@@ -5,12 +5,13 @@
 
 // Incluir dependencias
 require_once '../../src/Config/Database.php';
+require_once '../../src/Config/ApiAuth.php';
 
 // Configurar headers CORS
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Token, X-API-Timestamp, X-Session-Token');
 
 // Manejar preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -38,6 +39,13 @@ try {
     // Verificar método HTTP
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         handleError('Método no permitido', 405);
+    }
+    
+    // Validar token de autenticación (ApiAuth normaliza el path automáticamente)
+    $validation = ApiAuth::validateRequest();
+    
+    if (!$validation['valid']) {
+        handleError('Acceso no autorizado: ' . ($validation['error'] ?? 'Token inválido'), 401);
     }
 
     // Obtener ID del usuario
@@ -135,6 +143,11 @@ try {
     handleError('Error interno del servidor', 500);
 }
 ?>
+
+
+
+
+
 
 
 

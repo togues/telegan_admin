@@ -1,3 +1,33 @@
+<?php
+/**
+ * Dashboard Principal - Con sesión PHP
+ */
+
+// IMPORTANTE: Iniciar sesión ANTES de cualquier output
+session_start();
+
+// Incluir Security para headers CSP (debe ser antes de cualquier output HTML)
+require_once '../src/Config/Security.php';
+Security::init();
+
+// Manejar logout
+if (isset($_GET['logout']) && $_GET['logout'] == '1') {
+    session_destroy();
+    header('Location: ../auth/login.php');
+    exit;
+}
+
+// Verificar autenticación
+if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+    header('Location: ../auth/login.php');
+    exit;
+}
+
+// Obtener datos del usuario
+$userName = $_SESSION['admin_nombre'] ?? $_SESSION['admin_name'] ?? 'Usuario';
+$userEmail = $_SESSION['admin_email'] ?? '';
+$userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -8,6 +38,33 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script>
+        // Variables de sesión para JavaScript
+        window.userSession = {
+            loggedIn: true,
+            userName: <?php echo json_encode($userName); ?>,
+            userEmail: <?php echo json_encode($userEmail); ?>,
+            userRole: <?php echo json_encode($userRole); ?>,
+            userId: <?php echo json_encode($_SESSION['admin_user_id'] ?? $_SESSION['admin_id'] ?? null); ?>
+        };
+        
+        // Token de sesión desde PHP (generado en login)
+        <?php 
+        $sessionToken = $_SESSION['session_token'] ?? null;
+        if ($sessionToken) {
+            echo "window.sessionToken = " . json_encode($sessionToken) . ";\n";
+        }
+        ?>
+        
+        // Cargar tema guardado o detectar preferencia del sistema
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('telegan-theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        });
+    </script>
 </head>
 <body>
     
@@ -54,9 +111,9 @@
                 </div>
                 <div class="user-info">
                     <div class="user-avatar">
-                        <span>👨‍💼</span>
+                        <span><?php echo strtoupper(substr($userName, 0, 2)); ?></span>
                     </div>
-                    <span class="user-name">Administrador</span>
+                    <span class="user-name"><?php echo htmlspecialchars($userName); ?></span>
                 </div>
             </div>
         </div>
@@ -801,12 +858,10 @@
         </div>
     </div>
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+    <!-- Scripts (módulos ES6) -->
     <script type="module" src="js/ApiClient.js"></script>
     <script type="module" src="js/dashboard.js"></script>
 </body>

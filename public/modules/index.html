@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulos - Telegan Admin</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <style>
+        .module-header {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .module-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .breadcrumb {
+            background: var(--bg-secondary);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .breadcrumb a {
+            color: var(--accent-primary);
+            text-decoration: none;
+        }
+        
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
+        .content-area {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .module-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .module-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--accent-primary);
+        }
+        
+        .module-card h3 {
+            color: var(--accent-primary);
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .module-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        
+        .module-button {
+            display: inline-block;
+            background: var(--gradient-primary);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .module-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(109, 190, 69, 0.3);
+        }
+        
+        .back-button {
+            display: inline-block;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 0.75rem 2rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+        
+        .back-button:hover {
+            background: var(--accent-primary);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb">
+        <a href="../index.html">🏠 Inicio</a> > 
+        <span>Módulos del Sistema</span>
+    </nav>
+
+    <!-- Module Header -->
+    <header class="module-header">
+        <h1>📋 Módulos del Sistema</h1>
+        <p>Accede a todas las funcionalidades del panel administrativo</p>
+    </header>
+
+    <!-- Content Area -->
+    <div class="content-area">
+        <div class="modules-grid">
+            <!-- Dashboard -->
+            <div class="module-card">
+                <h3>📊 Dashboard</h3>
+                <p>Vista general del sistema con estadísticas, alertas y métricas clave</p>
+                <a href="../dashboard.html" class="module-button">Ir al Dashboard</a>
+            </div>
+
+            <!-- Usuarios -->
+            <div class="module-card">
+                <h3>👥 Gestión de Usuarios</h3>
+                <p>Administra usuarios del sistema, roles, permisos y datos demográficos</p>
+                <a href="users/" class="module-button">Gestionar Usuarios</a>
+            </div>
+
+            <!-- Fincas -->
+            <div class="module-card">
+                <h3>🏡 Gestión de Fincas</h3>
+                <p>Administra fincas, potreros, geometrías y asociaciones de usuarios</p>
+                <a href="farms/" class="module-button">Gestionar Fincas</a>
+            </div>
+
+            <!-- Registros Ganaderos -->
+            <div class="module-card">
+                <h3>🐄 Registros Ganaderos</h3>
+                <p>Gestiona registros de ganado, pastos, agua y ubicaciones</p>
+                <a href="records/" class="module-button">Ver Registros</a>
+            </div>
+
+            <!-- Autenticación -->
+            <div class="module-card">
+                <h3>🔐 Sistema de Auth</h3>
+                <p>Login, registro, recuperación de contraseña y gestión de sesiones</p>
+                <a href="../../auth/login.php" class="module-button">Ir a Login</a>
+            </div>
+
+            <!-- Configuración -->
+            <div class="module-card">
+                <h3>⚙️ Configuración</h3>
+                <p>Configuración del sistema, base de datos y parámetros generales</p>
+                <a href="settings/" class="module-button">Configurar</a>
+            </div>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="../index.html" class="back-button">Volver al Inicio</a>
+        </div>
+    </div>
+</body>
+</html>

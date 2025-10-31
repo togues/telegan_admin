@@ -4,21 +4,21 @@
  * Incluye: datos básicos, administradores, colaboradores, potreros, geometría
  */
 
-// Inicializar configuración de seguridad
-require_once 'security-config.php';
-initSecurity();
+// Incluir sistema de seguridad y autenticación API
+require_once '../../src/Middleware/SecurityMiddleware.php';
+require_once '../../src/Config/ApiAuth.php';
 
-// Incluir sistema de seguridad mejorado
-require_once '../../src/Config/Security.php';
-
-// Inicializar seguridad
-Security::init();
+// Inicializar middleware de seguridad
+SecurityMiddleware::init();
 
 header('Content-Type: application/json');
 
 // Incluir dependencias
 require_once '../../src/Config/Database.php';
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+// Configurar headers de respuesta
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Token, X-API-Timestamp, X-Session-Token');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 
 // Manejar preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -47,17 +47,25 @@ try {
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         handleError('Método no permitido', 405);
     }
+    
+    // Validar token de autenticación (ApiAuth normaliza el path automáticamente)
+    $validation = ApiAuth::validateRequest();
+    
+    if (!$validation['valid']) {
+        handleError('Acceso no autorizado: ' . ($validation['error'] ?? 'Token inválido'), 401);
+    }
 
     // Obtener ID de la finca
     $farmId = $_GET['farm_id'] ?? null;
     
-    if (!validateId($farmId)) {
+    if (!$farmId || !is_numeric($farmId) || $farmId <= 0) {
         handleError('ID de finca inválido', 400);
     }
 
     // ===========================================
     // 1. DATOS BÁSICOS DE LA FINCA
     // ===========================================
+    // Consulta básica sin geometrías (se cargan solo cuando se necesita el mapa)
     $farmSql = "
         SELECT 
             f.id_finca,
@@ -68,9 +76,18 @@ try {
             f.fecha_creacion,
             f.fecha_actualizacion,
             f.codigo_telegan,
-            f.geometria_wkt,
-            ST_AsText(f.geometria_postgis) as geometria_postgis,
-            ST_AsGeoJSON(ST_Transform(f.geometria_postgis, 4326)) as geojson,
+            -- Geometrías solo cuando se necesiten (marcador si tiene geometría)
+            CASE 
+                WHEN f.geometria_postgis IS NOT NULL OR f.geometria_wkt IS NOT NULL 
+                THEN 1 
+                ELSE 0 
+            END as tiene_geometria,
+            -- GeoJSON de geometría PostGIS (para mapa)
+            CASE 
+                WHEN f.geometria_postgis IS NOT NULL 
+                THEN ST_AsGeoJSON(f.geometria_postgis)::json
+                ELSE NULL 
+            END as geojson,
             p.nombre_pais,
             uc.nombre_completo as creador_nombre,
             uc.email as creador_email
@@ -198,9 +215,11 @@ try {
         'nombre_pais' => $farmData['nombre_pais'],
         'creador_nombre' => $farmData['creador_nombre'],
         'creador_email' => $farmData['creador_email'],
-        'geometria_wkt' => $farmData['geometria_wkt'],
-        'geometria_postgis' => $farmData['geometria_postgis'],
-        'geojson' => $farmData['geojson'] ? json_decode($farmData['geojson'], true) : null,
+        // Geometrías se cargan solo cuando se necesita el mapa
+        'tiene_geometria' => (bool)($farmData['tiene_geometria'] ?? false),
+        'geometria_wkt' => null,
+        'geometria_postgis' => null,
+        'geojson' => $farmData['geojson'] ? (is_string($farmData['geojson']) ? json_decode($farmData['geojson'], true) : $farmData['geojson']) : null,
         'display_info' => [
             'pais' => $farmData['nombre_pais'],
             'area' => $farmData['area_hectareas'] ? $farmData['area_hectareas'] . ' hectáreas' : 'Área no calculada',
@@ -234,7 +253,12 @@ try {
 
 } catch (Exception $e) {
     error_log("Error en farm-details.php: " . $e->getMessage());
-    handleError('Error interno del servidor', 500);
+    error_log("Stack trace: " . $e->getTraceAsString());
+    // En desarrollo, mostrar error detallado; en producción, mensaje genérico
+    $errorMessage = ($_ENV['APP_ENV'] ?? 'production') === 'development' 
+        ? $e->getMessage() 
+        : 'Error interno del servidor';
+    handleError($errorMessage, 500);
 }
 
 // Función para generar iniciales
