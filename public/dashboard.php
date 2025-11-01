@@ -57,13 +57,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
         }
         ?>
         
-        // Cargar tema guardado o detectar preferencia del sistema
-        document.addEventListener('DOMContentLoaded', function() {
-            const savedTheme = localStorage.getItem('telegan-theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-theme', theme);
-        });
+        // El tema se maneja ahora con theme-common.js
     </script>
 </head>
 <body>
@@ -859,6 +853,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- Scripts (módulos ES6) -->
+    <script src="js/theme-common.js"></script>
     <script type="module" src="js/ApiClient.js"></script>
     <script type="module" src="js/dashboard.js"></script>
 </body>

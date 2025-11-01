@@ -39,11 +39,7 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         }
         ?>
         
-        document.addEventListener('DOMContentLoaded', function() {
-            const savedTheme = localStorage.getItem('telegan-theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-theme', theme);
+        // El tema se maneja ahora con theme-common.js
             
             try {
                 const saved = localStorage.getItem('sidebarCollapsed');
@@ -57,6 +53,10 @@ $sessionToken = $_SESSION['session_token'] ?? null;
     </script>
     <style>
         .toolbar { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; position: sticky; top: calc(var(--header-height) + 8px); z-index: 10; background: var(--bg-primary); padding: 0.5rem 0 0.25rem 0; }
+        @media (max-width: 768px) {
+            .toolbar > div:first-child { grid-template-columns: 1fr; gap: 0.5rem; }
+            .toolbar > div:first-child input, .toolbar > div:first-child select { width: 100%; }
+        }
         .input, .select { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); border-radius: 10px; padding: 0.5rem 0.75rem; font-size: 0.9rem; height: 36px; }
         .table-wrap { border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; background: var(--bg-card); margin-top: 0.5rem; max-height: calc(100vh - 280px); overflow-y: auto; position: relative; }
         table.users { width: 100%; border-collapse: collapse; border-spacing: 0; }
@@ -184,9 +184,25 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             <p class="page-subtitle">Listado de usuarios activos sin fincas asociadas</p>
         </div>
 
-        <!-- Toolbar paginación -->
+        <!-- Toolbar filtros -->
         <div class="toolbar">
-            <div></div>
+            <div style="display: grid; grid-template-columns: 1fr auto auto auto auto auto auto; gap: 0.5rem; width: 100%;">
+                <input id="q" class="input" placeholder="Buscar por nombre, email o teléfono" />
+                <input id="codigo" type="text" class="input" placeholder="Código Telegan" style="width: 140px;" />
+                <input id="fecha_desde" type="date" class="input" placeholder="Desde" style="width: 140px;" />
+                <input id="fecha_hasta" type="date" class="input" placeholder="Hasta" style="width: 140px;" />
+                <select id="activo" class="select">
+                    <option value="">Todos</option>
+                    <option value="1">Activos</option>
+                    <option value="0">Inactivos</option>
+                </select>
+                <button id="clearFilters" class="btn" title="Limpiar filtros" style="width: auto; padding: 0.4rem 0.75rem;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
             <div class="pagination">
                 <button id="prev" class="btn">Anterior</button>
                 <span id="pageInfo" style="color: var(--text-secondary);"></span>
@@ -219,12 +235,23 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         import { ApiClient } from '../../js/ApiClient.js';
 
         const state = {
+            q: '',
+            codigo: '',
+            fechaDesde: '',
+            fechaHasta: '',
+            activo: '',
             page: 1,
             pageSize: 20,
             totalPages: 1
         };
 
         const els = {
+            q: document.getElementById('q'),
+            codigo: document.getElementById('codigo'),
+            fechaDesde: document.getElementById('fecha_desde'),
+            fechaHasta: document.getElementById('fecha_hasta'),
+            activo: document.getElementById('activo'),
+            clearFilters: document.getElementById('clearFilters'),
             prev: document.getElementById('prev'),
             next: document.getElementById('next'),
             pageInfo: document.getElementById('pageInfo'),
@@ -233,9 +260,31 @@ $sessionToken = $_SESSION['session_token'] ?? null;
 
         function buildUrl() {
             const params = new URLSearchParams();
+            if (state.q) params.set('q', state.q);
+            if (state.codigo) params.set('codigo', state.codigo);
+            if (state.fechaDesde) params.set('fecha_desde', state.fechaDesde);
+            if (state.fechaHasta) params.set('fecha_hasta', state.fechaHasta);
+            if (state.activo !== '') params.set('activo', state.activo);
             params.set('page', String(state.page));
             params.set('page_size', String(state.pageSize));
             return `api/alerts-users-no-farms.php?${params.toString()}`;
+        }
+
+        function clearFilters() {
+            state.q = '';
+            state.codigo = '';
+            state.fechaDesde = '';
+            state.fechaHasta = '';
+            state.activo = '';
+            state.page = 1;
+            
+            if (els.q) els.q.value = '';
+            if (els.codigo) els.codigo.value = '';
+            if (els.fechaDesde) els.fechaDesde.value = '';
+            if (els.fechaHasta) els.fechaHasta.value = '';
+            if (els.activo) els.activo.value = '';
+            
+            loadUsers();
         }
 
         async function loadUsers() {
@@ -291,22 +340,26 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             els.tbody.innerHTML = html;
         }
 
+        // Event listeners para filtros
+        function debounce(fn, ms) {
+            let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+        }
+
+        if (els.q) els.q.addEventListener('input', debounce(e => { state.q = e.target.value.trim(); state.page = 1; loadUsers(); }, 300));
+        if (els.codigo) els.codigo.addEventListener('input', debounce(e => { state.codigo = e.target.value.trim(); state.page = 1; loadUsers(); }, 300));
+        if (els.fechaDesde) els.fechaDesde.addEventListener('change', e => { state.fechaDesde = e.target.value; state.page = 1; loadUsers(); });
+        if (els.fechaHasta) els.fechaHasta.addEventListener('change', e => { state.fechaHasta = e.target.value; state.page = 1; loadUsers(); });
+        if (els.activo) els.activo.addEventListener('change', e => { state.activo = e.target.value; state.page = 1; loadUsers(); });
+        if (els.clearFilters) els.clearFilters.addEventListener('click', clearFilters);
+
         els.prev.addEventListener('click', () => { if (state.page > 1) { state.page--; loadUsers(); } });
         els.next.addEventListener('click', () => { if (state.page < state.totalPages) { state.page++; loadUsers(); } });
 
         loadUsers();
     </script>
+    <script src="../../js/theme-common.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const themeToggle = document.getElementById('theme-toggle');
-            if (themeToggle) {
-                themeToggle.addEventListener('click', function() {
-                    const currentTheme = document.documentElement.getAttribute('data-theme');
-                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                    document.documentElement.setAttribute('data-theme', newTheme);
-                    localStorage.setItem('telegan-theme', newTheme);
-                });
-            }
             
             const menuToggle = document.getElementById('menuToggle');
             const sidebar = document.getElementById('sidebar');

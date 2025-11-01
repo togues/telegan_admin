@@ -38,12 +38,60 @@ try {
         ], 401);
     }
 
+    // Filtros
+    $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+    $codigo = isset($_GET['codigo']) ? trim($_GET['codigo']) : '';
+    $fechaDesde = isset($_GET['fecha_desde']) ? trim($_GET['fecha_desde']) : '';
+    $fechaHasta = isset($_GET['fecha_hasta']) ? trim($_GET['fecha_hasta']) : '';
+    $activo = isset($_GET['activo']) ? trim($_GET['activo']) : '';
+    
     $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
     $pageSize = isset($_GET['page_size']) && is_numeric($_GET['page_size']) ? (int)$_GET['page_size'] : 20;
     if ($pageSize > 100) { $pageSize = 100; }
     $offset = ($page - 1) * $pageSize;
 
-    // Usuarios sin datos demográficos completos
+    // Construir condiciones WHERE
+    $where = [
+        'u.activo = TRUE',
+        '(d.id_demografia IS NULL OR d.genero IS NULL OR d.edad IS NULL OR d.grupo_etnico IS NULL)'
+    ];
+    $params = [];
+
+    // Búsqueda general
+    if ($q !== '') {
+        $where[] = '(u.nombre_completo ILIKE :q OR u.email ILIKE :q OR u.telefono ILIKE :q)';
+        $params['q'] = "%$q%";
+    }
+
+    // Filtro por código
+    if ($codigo !== '') {
+        $where[] = 'u.codigo_telegan ILIKE :codigo';
+        $params['codigo'] = "%$codigo%";
+    }
+
+    // Filtro por fecha
+    if ($fechaDesde !== '') {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
+            $where[] = 'DATE(u.fecha_registro) >= :fecha_desde';
+            $params['fecha_desde'] = $fechaDesde;
+        }
+    }
+    
+    if ($fechaHasta !== '') {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+            $where[] = 'DATE(u.fecha_registro) <= :fecha_hasta';
+            $params['fecha_hasta'] = $fechaHasta;
+        }
+    }
+
+    // Filtro por estado activo (si se especifica explícitamente)
+    if ($activo === '0') {
+        $where[0] = 'u.activo = FALSE';
+    }
+
+    $whereSql = 'WHERE ' . implode(' AND ', $where);
+
+    // Consulta con filtros
     $sql = "
         SELECT 
             u.id_usuario, u.nombre_completo, u.email, u.telefono,
@@ -52,38 +100,23 @@ try {
             d.id_demografia, d.genero, d.edad, d.grupo_etnico
         FROM usuario u
         LEFT JOIN demografia_usuario d ON u.id_usuario = d.id_usuario
-        WHERE u.activo = TRUE
-        AND (d.id_demografia IS NULL 
-             OR d.genero IS NULL 
-             OR d.edad IS NULL 
-             OR d.grupo_etnico IS NULL)
+        $whereSql
         ORDER BY u.fecha_registro DESC
         LIMIT :limit OFFSET :offset
     ";
 
-    $params = [
-        'limit' => $pageSize,
-        'offset' => $offset
-    ];
+    $paramsWithLimit = $params;
+    $paramsWithLimit['limit'] = $pageSize;
+    $paramsWithLimit['offset'] = $offset;
 
-    $rows = Database::fetchAll($sql, $params, [
+    $rows = Database::fetchAll($sql, $paramsWithLimit, [
         'limit' => \PDO::PARAM_INT,
         'offset' => \PDO::PARAM_INT
     ]);
 
-    // Contar total
-    $countSql = "
-        SELECT COUNT(*) AS total 
-        FROM usuario u
-        LEFT JOIN demografia_usuario d ON u.id_usuario = d.id_usuario
-        WHERE u.activo = TRUE
-        AND (d.id_demografia IS NULL 
-             OR d.genero IS NULL 
-             OR d.edad IS NULL 
-             OR d.grupo_etnico IS NULL)
-    ";
-    
-    $countRow = Database::fetch($countSql);
+    // Contar total con filtros
+    $countSql = "SELECT COUNT(*) AS total FROM usuario u LEFT JOIN demografia_usuario d ON u.id_usuario = d.id_usuario $whereSql";
+    $countRow = Database::fetch($countSql, $params);
     $total = (int)($countRow['total'] ?? 0);
 
     $data = array_map(function ($r) {

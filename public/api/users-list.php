@@ -40,6 +40,9 @@ try {
 
     $q = isset($_GET['q']) ? trim($_GET['q']) : '';
     $activo = isset($_GET['activo']) ? trim($_GET['activo']) : ''; // '', '1', '0'
+    $codigo = isset($_GET['codigo']) ? trim($_GET['codigo']) : '';
+    $fechaDesde = isset($_GET['fecha_desde']) ? trim($_GET['fecha_desde']) : '';
+    $fechaHasta = isset($_GET['fecha_hasta']) ? trim($_GET['fecha_hasta']) : '';
     $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
     $pageSize = isset($_GET['page_size']) && is_numeric($_GET['page_size']) ? (int)$_GET['page_size'] : 20;
     if ($pageSize > 100) { $pageSize = 100; }
@@ -48,9 +51,33 @@ try {
     $where = [];
     $params = [];
 
+    // Búsqueda general (nombre, email, teléfono)
     if ($q !== '') {
         $where[] = '(u.nombre_completo ILIKE :q OR u.email ILIKE :q OR u.telefono ILIKE :q)';
         $params['q'] = "%$q%";
+    }
+
+    // Filtro por código Telegan
+    if ($codigo !== '') {
+        $where[] = 'u.codigo_telegan ILIKE :codigo';
+        $params['codigo'] = "%$codigo%";
+    }
+
+    // Filtro por fecha de registro (rango)
+    if ($fechaDesde !== '') {
+        // Validar formato de fecha (YYYY-MM-DD)
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
+            $where[] = 'DATE(u.fecha_registro) >= :fecha_desde';
+            $params['fecha_desde'] = $fechaDesde;
+        }
+    }
+    
+    if ($fechaHasta !== '') {
+        // Validar formato de fecha (YYYY-MM-DD)
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+            $where[] = 'DATE(u.fecha_registro) <= :fecha_hasta';
+            $params['fecha_hasta'] = $fechaHasta;
+        }
     }
 
     if ($activo === '1') {

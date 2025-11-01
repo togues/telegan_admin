@@ -122,6 +122,12 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         .pagination { display: flex; gap: 0.5rem; align-items: center; justify-content: flex-end; padding: 0.5rem; }
         .btn { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.4rem 0.75rem; height: 32px; border-radius: 8px; cursor: pointer; }
         .btn:disabled { opacity: .4; cursor: default; }
+        .btn-view-user { border: none; background: transparent; color: var(--text-secondary); padding: 0.25rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
+        .btn-view-user:hover { background: var(--bg-secondary); color: var(--accent-primary); transform: scale(1.1); }
+        @media (max-width: 768px) {
+            .toolbar > div:first-child { grid-template-columns: 1fr; gap: 0.5rem; }
+            .toolbar > div:first-child input, .toolbar > div:first-child select { width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -239,12 +245,23 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         </div>
         <!-- Toolbar filtros -->
         <div class="toolbar">
-            <input id="q" class="input" placeholder="Buscar por nombre, email o teléfono" />
-            <select id="activo" class="select">
-                <option value="">Todos</option>
-                <option value="1">Activos</option>
-                <option value="0">Inactivos</option>
-            </select>
+            <div style="display: grid; grid-template-columns: 1fr auto auto auto auto auto auto; gap: 0.5rem; width: 100%;">
+                <input id="q" class="input" placeholder="Buscar por nombre, email o teléfono" />
+                <input id="codigo" type="text" class="input" placeholder="Código Telegan" style="width: 140px;" />
+                <input id="fecha_desde" type="date" class="input" placeholder="Desde" style="width: 140px;" />
+                <input id="fecha_hasta" type="date" class="input" placeholder="Hasta" style="width: 140px;" />
+                <select id="activo" class="select">
+                    <option value="">Todos</option>
+                    <option value="1">Activos</option>
+                    <option value="0">Inactivos</option>
+                </select>
+                <button id="clearFilters" class="btn" title="Limpiar filtros" style="width: auto; padding: 0.4rem 0.75rem;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
             <div class="pagination">
                 <button id="prev" class="btn">Anterior</button>
                 <span id="pageInfo" style="color: var(--text-secondary);"></span>
@@ -270,7 +287,6 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                 <thead class="sticky">
                     <tr>
                         <th style="width:40px;"></th>
-                        <th style="width:80px;">ID</th>
                         <th>Nombre</th>
                         <th>Email</th>
                         <th style="width:120px;">Teléfono</th>
@@ -278,6 +294,7 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                         <th style="width:160px;">Registro</th>
                         <th style="width:160px;">Última sesión</th>
                         <th style="width:120px;">Código</th>
+                        <th style="width:60px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="tbody">
@@ -287,19 +304,91 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         </div>
     </main>
 
+    <!-- User Profile Modal (reutilizado del dashboard) -->
+    <div id="user-profile-modal" class="search-modal" style="display: none;">
+        <div class="search-modal-overlay" onclick="closeUserProfileModal()"></div>
+        <div class="search-modal-content">
+            <!-- Modal Header -->
+            <div class="search-modal-header">
+                <h2 class="search-modal-title">Perfil de Usuario</h2>
+                <button class="search-modal-close" onclick="closeUserProfileModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- User Profile -->
+            <div class="user-profile" id="user-profile-content">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <span id="profile-initials">-</span>
+                    </div>
+                    <div class="profile-info">
+                        <h3 class="profile-name" id="profile-name">-</h3>
+                        <p class="profile-location" id="profile-location">-</p>
+                        <div class="profile-status">
+                            <span class="status-badge" id="profile-status">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-content">
+                    <div class="profile-section">
+                        <h4 class="section-title">Información Personal</h4>
+                        <div class="profile-grid">
+                            <div class="profile-item">
+                                <label>Email</label>
+                                <span id="profile-email">-</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Teléfono</label>
+                                <span id="profile-phone">-</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Ubicación</label>
+                                <span id="profile-ubicacion">-</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Fecha de Registro</label>
+                                <span id="profile-fecha-registro">-</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Última Sesión</label>
+                                <span id="profile-ultima-sesion">-</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Código Telegan</label>
+                                <span id="profile-codigo">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User's Farms Section -->
+                    <div class="profile-section">
+                        <h4 class="section-title">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                            Fincas del Agricultor
+                        </h4>
+                        <div class="farms-list" id="farms-list">
+                            <div class="loading-farms">
+                                <div class="loading-spinner"></div>
+                                <p>Cargando fincas...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../js/theme-common.js"></script>
     <script type="module" src="./users.js"></script>
     <script>
-        // Toggle theme functionality
         document.addEventListener('DOMContentLoaded', function() {
-            const themeToggle = document.getElementById('theme-toggle');
-            if (themeToggle) {
-                themeToggle.addEventListener('click', function() {
-                    const currentTheme = document.documentElement.getAttribute('data-theme');
-                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                    document.documentElement.setAttribute('data-theme', newTheme);
-                    localStorage.setItem('telegan-theme', newTheme);
-                });
-            }
             
             // Mobile menu toggle
             const menuToggle = document.getElementById('menuToggle');

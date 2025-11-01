@@ -45,26 +45,28 @@ document.addEventListener('DOMContentLoaded', function() {
 // ===================================
 // Theme Management
 // ===================================
+// Nota: El tema se maneja principalmente con theme-common.js
+// Esta función solo agrega la notificación cuando se cambia el tema desde el dashboard
 function initializeTheme() {
-    // Check for saved theme preference or default to 'light'
-    const currentTheme = localStorage.getItem('theme') || 'light';
+    // Asegurar que el tema se aplique (theme-common.js lo hace, pero por si acaso)
+    const savedTheme = localStorage.getItem('telegan-theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const currentTheme = savedTheme || (prefersDark ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', currentTheme);
     
-    // Theme toggle event listener
+    // Agregar listener adicional para mostrar notificación cuando se cambia el tema
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-            const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', theme);
-            localStorage.setItem('theme', theme);
-            
-            // Add transition effect
-            document.body.style.transition = 'background-color 0.3s ease, color 0.3s ease';
+        // Remover listeners previos para evitar duplicados
+        const newToggle = themeToggle.cloneNode(true);
+        themeToggle.parentNode.replaceChild(newToggle, themeToggle);
+        
+        newToggle.addEventListener('click', () => {
+            // theme-common.js ya maneja el cambio, solo mostramos notificación
             setTimeout(() => {
-                document.body.style.transition = '';
-            }, 300);
-            
-            showNotification(`Tema cambiado a ${theme === 'dark' ? 'oscuro' : 'claro'}`, 'info');
+                const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+                showNotification(`Tema cambiado a ${currentTheme === 'dark' ? 'oscuro' : 'claro'}`, 'info');
+            }, 100);
         });
     }
 }
