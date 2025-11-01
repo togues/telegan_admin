@@ -17,7 +17,7 @@ class Database
             try {
                 // Cargar variables de entorno
                 self::loadEnv();
-
+                
                 $host = $_ENV['DB_HOST'] ?? 'localhost';
                 $port = $_ENV['DB_PORT'] ?? '5432';
                 $dbname = $_ENV['DB_NAME'] ?? 'telegan_agricultores';
@@ -51,10 +51,10 @@ class Database
     private static function loadEnv()
     {
         $envFile = __DIR__ . '/../../.env';
-
+        
         if (file_exists($envFile)) {
             $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-
+            
             foreach ($lines as $line) {
                 if (strpos($line, '=') !== false && strpos($line, '#') !== 0) {
                     list($key, $value) = explode('=', $line, 2);

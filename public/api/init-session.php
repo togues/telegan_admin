@@ -48,7 +48,7 @@ echo json_encode([
     'data' => [
         'session_token' => $sessionToken,
         'session_id' => $sessionId,
-        'timestamp' => $sessionTimestamp,
+        'timestamp' => $timestamp,
         'expires_in' => 3600 // 1 hora
     ],
     'timestamp' => date('Y-m-d H:i:s')
