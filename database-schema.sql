@@ -496,3 +496,4 @@ WHERE geometria_wkt IS NOT NULL
 
 
 
+

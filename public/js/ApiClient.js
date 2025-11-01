@@ -6,8 +6,6 @@ import { AppConfig } from './config.js';
 
 class ApiClient {
     constructor() {
-        // Usar la base URL configurada en AppConfig (absoluta desde origin)
-        this.baseURL = AppConfig.apiBaseUrl;
         // Usar variable en memoria en lugar de localStorage
         this.token = window.adminToken || null;
         // Token de sesión persistente (viene desde PHP o se obtiene al iniciar)
@@ -23,6 +21,11 @@ class ApiClient {
             console.log('No hay token desde PHP, inicializando sesión...');
             this._sessionInitPromise = this.initSession();
         }
+    }
+    
+    // Getter para obtener la base URL dinámicamente
+    get baseURL() {
+        return AppConfig.apiBaseUrl;
     }
     
     /**

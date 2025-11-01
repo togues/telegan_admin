@@ -1,25 +1,19 @@
 <?php
 /**
- * Módulo de Gestión de Usuarios - Con sesión PHP
+ * Módulo: Usuarios sin Demografía - Listado
  */
 
-// IMPORTANTE: Iniciar sesión ANTES de cualquier output
 session_start();
 
-// Incluir Security para headers CSP
 require_once '../../../src/Config/Security.php';
 Security::init();
 
-// Verificar autenticación
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
     header('Location: ../../../auth/login.php');
     exit;
 }
 
-// Obtener datos del usuario
 $userName = $_SESSION['admin_nombre'] ?? $_SESSION['admin_name'] ?? 'Usuario';
-
-// Token de sesión (generado en login)
 $sessionToken = $_SESSION['session_token'] ?? null;
 ?>
 <!DOCTYPE html>
@@ -27,34 +21,30 @@ $sessionToken = $_SESSION['session_token'] ?? null;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Usuarios - Telegan Admin</title>
+    <title>Usuarios sin Demografía - Telegan Admin</title>
     <link rel="stylesheet" href="../../css/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
-        // Variables de sesión para JavaScript
         window.userSession = {
             loggedIn: true,
             userName: <?php echo json_encode($userName); ?>,
             userId: <?php echo json_encode($_SESSION['admin_id'] ?? null); ?>
         };
         
-        // Token de sesión desde PHP (generado en login)
         <?php 
         if ($sessionToken) {
             echo "window.sessionToken = " . json_encode($sessionToken) . ";\n";
         }
         ?>
         
-        // Cargar tema guardado o detectar preferencia del sistema
         document.addEventListener('DOMContentLoaded', function() {
             const savedTheme = localStorage.getItem('telegan-theme');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             const theme = savedTheme || (prefersDark ? 'dark' : 'light');
             document.documentElement.setAttribute('data-theme', theme);
             
-            // Sidebar collapsed state
             try {
                 const saved = localStorage.getItem('sidebarCollapsed');
                 if (saved === 'true') {
@@ -66,61 +56,20 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         });
     </script>
     <style>
-        .toolbar { display: grid; grid-template-columns: 1fr auto auto; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; position: sticky; top: calc(var(--header-height) + 8px); z-index: 10; background: var(--bg-primary); padding: 0.5rem 0 0.25rem 0; }
+        .toolbar { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; position: sticky; top: calc(var(--header-height) + 8px); z-index: 10; background: var(--bg-primary); padding: 0.5rem 0 0.25rem 0; }
         .input, .select { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); border-radius: 10px; padding: 0.5rem 0.75rem; font-size: 0.9rem; height: 36px; }
-        .bulk-select { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-        .bulk-select button { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.4rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap; }
-        .bulk-select button:hover { background: var(--bg-secondary); }
-        .bulk-actions { display: none; align-items: center; gap: 0.5rem; padding: 0.75rem; background: var(--accent-primary); border-radius: 8px; margin-bottom: 0.5rem; position: sticky; top: calc(var(--header-height) + 50px); z-index: 9; }
-        .bulk-actions button { border: 1px solid white; background: white; color: var(--accent-primary); padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
-        .bulk-actions button:hover { background: var(--bg-secondary); color: var(--text-primary); }
-        .user-checkbox { cursor: pointer; }
-        .user-checkbox:checked { accent-color: var(--accent-primary); }
-        .table-wrap { 
-            border: 1px solid var(--border-color); 
-            border-radius: 10px; 
-            overflow: hidden; 
-            background: var(--bg-card); 
-            margin-top: 0.5rem;
-            max-height: calc(100vh - 200px);
-            overflow-y: auto;
-            position: relative;
-        }
-        table.users { 
-            width: 100%; 
-            border-collapse: collapse; 
-            border-spacing: 0;
-        }
-        thead.sticky { 
-            position: sticky; 
-            top: 0; 
-            background: var(--bg-card); 
-            z-index: 10; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-        }
-        th, td { 
-            text-align: left; 
-            padding: 10px 12px; 
-            border-bottom: 1px solid var(--border-color); 
-            font-size: 0.9rem; 
-            white-space: nowrap; 
-        }
-        tbody tr:hover { 
-            background: var(--bg-secondary); 
-        }
-        th { 
-            font-size: 0.75rem; 
-            text-transform: uppercase; 
-            letter-spacing: 0.05em; 
-            color: var(--text-secondary); 
-            background: var(--bg-card);
-            font-weight: 600;
-        }
+        .table-wrap { border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; background: var(--bg-card); margin-top: 0.5rem; max-height: calc(100vh - 280px); overflow-y: auto; position: relative; }
+        table.users { width: 100%; border-collapse: collapse; border-spacing: 0; }
+        thead.sticky { position: sticky; top: 0; background: var(--bg-card); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; white-space: nowrap; }
+        tbody tr:hover { background: var(--bg-secondary); }
+        th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); background: var(--bg-card); font-weight: 600; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
         .dot-on { background: var(--success-color); }
         .dot-off { background: var(--error-color); }
         .pagination { display: flex; gap: 0.5rem; align-items: center; justify-content: flex-end; padding: 0.5rem; }
-        .btn { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.4rem 0.75rem; height: 32px; border-radius: 8px; cursor: pointer; }
+        .btn { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.4rem 0.75rem; height: 32px; border-radius: 8px; cursor: pointer; transition: all var(--timing-fast) ease; }
+        .btn:hover { background: var(--bg-secondary); }
         .btn:disabled { opacity: .4; cursor: default; }
     </style>
 </head>
@@ -191,8 +140,8 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                         <span class="menu-text">Dashboard</span>
                     </a>
                 </li>
-                <li class="menu-item active">
-                    <a href="#" class="menu-link">
+                <li class="menu-item">
+                    <a href="../users/index.php" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                             <circle cx="12" cy="7" r="4"></circle>
@@ -212,8 +161,6 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                     <a href="../records/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                            <path d="M2 17l10 5 10-5"></path>
-                            <path d="M2 12l10 5 10-5"></path>
                         </svg>
                         <span class="menu-text">Potreros</span>
                     </a>
@@ -222,7 +169,6 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                     <a href="../records/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14,2 14,8 20,8"></polyline>
                         </svg>
                         <span class="menu-text">Registros</span>
                     </a>
@@ -234,17 +180,13 @@ $sessionToken = $_SESSION['session_token'] ?? null;
     <!-- Main Content -->
     <main class="main-content">
         <div class="content-header">
-            <h1 class="page-title">Gestión de Usuarios</h1>
-            <p class="page-subtitle">Administra usuarios del sistema, roles y permisos</p>
+            <h1 class="page-title">Usuarios sin Demografía</h1>
+            <p class="page-subtitle">Listado de usuarios activos con datos demográficos incompletos</p>
         </div>
-        <!-- Toolbar filtros -->
+
+        <!-- Toolbar paginación -->
         <div class="toolbar">
-            <input id="q" class="input" placeholder="Buscar por nombre, email o teléfono" />
-            <select id="activo" class="select">
-                <option value="">Todos</option>
-                <option value="1">Activos</option>
-                <option value="0">Inactivos</option>
-            </select>
+            <div></div>
             <div class="pagination">
                 <button id="prev" class="btn">Anterior</button>
                 <span id="pageInfo" style="color: var(--text-secondary);"></span>
@@ -252,44 +194,109 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             </div>
         </div>
 
-        <!-- Bulk Select -->
-        <div class="bulk-select">
-            <button id="selectAll">Marcar todos</button>
-        </div>
-
-        <!-- Bulk Actions -->
-        <div id="bulkActions" class="bulk-actions">
-            <span style="color: white; font-weight: 600;">Acciones masivas:</span>
-            <button id="bulkBtnActivate">✓ Activar</button>
-            <button id="bulkBtnDeactivate">✗ Desactivar</button>
-        </div>
-
         <!-- Tabla usuarios -->
         <div class="table-wrap">
             <table class="users">
                 <thead class="sticky">
                     <tr>
-                        <th style="width:40px;"></th>
                         <th style="width:80px;">ID</th>
                         <th>Nombre</th>
                         <th>Email</th>
                         <th style="width:120px;">Teléfono</th>
-                        <th style="width:120px;">Estado</th>
                         <th style="width:160px;">Registro</th>
                         <th style="width:160px;">Última sesión</th>
                         <th style="width:120px;">Código</th>
                     </tr>
                 </thead>
                 <tbody id="tbody">
-                    <tr><td colspan="9" style="text-align:center; color: var(--text-secondary); padding: 16px;">Cargando...</td></tr>
+                    <tr><td colspan="7" style="text-align:center; color: var(--text-secondary); padding: 16px;">Cargando...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
-    <script type="module" src="./users.js"></script>
+    <script type="module">
+        import { ApiClient } from '../../js/ApiClient.js';
+
+        const state = {
+            page: 1,
+            pageSize: 20,
+            totalPages: 1
+        };
+
+        const els = {
+            prev: document.getElementById('prev'),
+            next: document.getElementById('next'),
+            pageInfo: document.getElementById('pageInfo'),
+            tbody: document.getElementById('tbody')
+        };
+
+        function buildUrl() {
+            const params = new URLSearchParams();
+            params.set('page', String(state.page));
+            params.set('page_size', String(state.pageSize));
+            return `api/alerts-users-no-demography.php?${params.toString()}`;
+        }
+
+        async function loadUsers() {
+            try {
+                els.tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-secondary); padding: 16px;">Cargando...</td></tr>`;
+                const url = buildUrl();
+                
+                const api = new ApiClient();
+                const response = await api.get(url);
+                
+                if (!response.success) {
+                    throw new Error(response.error || 'Error al cargar usuarios');
+                }
+                
+                renderRows(response.data || []);
+                const pg = response.pagination || {};
+                state.totalPages = pg.total_pages || 1;
+                els.pageInfo.textContent = `Página ${pg.page || state.page} de ${state.totalPages} • ${pg.total || 0} usuarios`;
+                els.prev.disabled = state.page <= 1;
+                els.next.disabled = state.page >= state.totalPages;
+            } catch (e) {
+                console.error('Error loading users:', e);
+                els.tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--error-color); padding: 16px;">Error: ${e.message || 'Error desconocido'}</td></tr>`;
+            }
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function fmtDate(d) {
+            if (!d) return '';
+            try { return new Date(d).toLocaleString(); } catch (_) { return d; }
+        }
+
+        function renderRows(rows) {
+            if (!rows.length) {
+                els.tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-secondary); padding: 16px;">Sin resultados</td></tr>`;
+                return;
+            }
+            const html = rows.map(r => `
+                <tr>
+                    <td>${r.id_usuario}</td>
+                    <td>${escapeHtml(r.nombre_completo)}</td>
+                    <td>${escapeHtml(r.email || '')}</td>
+                    <td>${escapeHtml(r.telefono || '')}</td>
+                    <td>${fmtDate(r.fecha_registro)}</td>
+                    <td>${fmtDate(r.ultima_sesion)}</td>
+                    <td>${escapeHtml(r.codigo_telegan || '')}</td>
+                </tr>
+            `).join('');
+            els.tbody.innerHTML = html;
+        }
+
+        els.prev.addEventListener('click', () => { if (state.page > 1) { state.page--; loadUsers(); } });
+        els.next.addEventListener('click', () => { if (state.page < state.totalPages) { state.page++; loadUsers(); } });
+
+        loadUsers();
+    </script>
     <script>
-        // Toggle theme functionality
         document.addEventListener('DOMContentLoaded', function() {
             const themeToggle = document.getElementById('theme-toggle');
             if (themeToggle) {
@@ -301,17 +308,12 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                 });
             }
             
-            // Mobile menu toggle
             const menuToggle = document.getElementById('menuToggle');
             const sidebar = document.getElementById('sidebar');
-            
             if (menuToggle && sidebar) {
-                menuToggle.addEventListener('click', () => {
-                    sidebar.classList.toggle('open');
-                });
+                menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
             }
             
-            // Desktop collapse toggle
             const collapseToggle = document.getElementById('collapseToggle');
             if (collapseToggle) {
                 collapseToggle.addEventListener('click', () => {
@@ -325,3 +327,4 @@ $sessionToken = $_SESSION['session_token'] ?? null;
     </script>
 </body>
 </html>
+

@@ -3,12 +3,17 @@
  * Tokens, URLs base, etc.
  */
 export const AppConfig = {
-    // URL base de la API
-    apiBaseUrl: window.location.origin + '/TELEGAN_ADMIN/public/api',
+    // URL base de la API - detectar automáticamente desde la URL actual
+    get apiBaseUrl() {
+        const path = window.location.pathname;
+        let base = path.split('/public/')[0] + '/public/api';
+        if (!base.startsWith('/')) base = '/' + base;
+        return window.location.origin + base;
+    },
     
     // Secret para generar tokens (DEBE COINCIDIR con API_SECRET en archivo env)
     // ⚠️ IMPORTANTE: Este valor debe ser IGUAL al API_SECRET en tu archivo env
-    apiSecret: 'cd63c1e1-bdfc-4a03-b3b8-45fc4e26b58f',
+    apiSecret: 'telegan_default_secret_change_in_production',
     
     // Hash SHA-256 usando Web Crypto API
     async sha256Async(message) {
@@ -24,9 +29,10 @@ export const AppConfig = {
         for (let i = 0; i < str.length; i++) {
             const char = str.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
+            // Forzar a 32 bits (igual que PHP: hash & 0xFFFFFFFF)
+            hash = hash >>> 0;
         }
-        return Math.abs(hash).toString(16).padStart(8, '0');
+        return hash.toString(16).padStart(8, '0');
     },
     
     // Generar token para una petición (sincrónico)

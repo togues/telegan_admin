@@ -418,34 +418,36 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                                 Usuarios
                             </h3>
                             <div class="alert-cards">
-                                <div class="alert-card critical" id="usuariosSinFinca">
-                                    <div class="alert-icon">🏞️</div>
-                                    <div class="alert-content">
-                                        <span class="alert-value">-</span>
-                                        <span class="alert-label">Sin finca</span>
+                                <a href="modules/alerts/users-no-farms.php" class="alert-card-link">
+                                    <div class="alert-card critical" id="usuariosSinFinca">
+                                        <div class="alert-content">
+                                            <span class="alert-value">-</span>
+                                            <span class="alert-label">Sin finca</span>
+                                        </div>
                                     </div>
-                                </div>
+                                </a>
                                 <div class="alert-card warning" id="usuariosInactivos">
-                                    <div class="alert-icon">⏰</div>
                                     <div class="alert-content">
                                         <span class="alert-value">-</span>
                                         <span class="alert-label">Inactivos 30+ días</span>
                                     </div>
                                 </div>
-                                <div class="alert-card info" id="usuariosNuncaLogin">
-                                    <div class="alert-icon">🚫</div>
-                                    <div class="alert-content">
-                                        <span class="alert-value">-</span>
-                                        <span class="alert-label">Nunca logueados</span>
+                                <a href="modules/alerts/users-never-logged-in.php" class="alert-card-link">
+                                    <div class="alert-card info" id="usuariosNuncaLogin">
+                                        <div class="alert-content">
+                                            <span class="alert-value">-</span>
+                                            <span class="alert-label">Nunca logueados</span>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="alert-card warning" id="usuariosSinDemo">
-                                    <div class="alert-icon">📋</div>
-                                    <div class="alert-content">
-                                        <span class="alert-value">-</span>
-                                        <span class="alert-label">Sin demografía</span>
+                                </a>
+                                <a href="modules/alerts/users-no-demography.php" class="alert-card-link">
+                                    <div class="alert-card warning" id="usuariosSinDemo">
+                                        <div class="alert-content">
+                                            <span class="alert-value">-</span>
+                                            <span class="alert-label">Sin demografía</span>
+                                        </div>
                                     </div>
-                                </div>
+                                </a>
                             </div>
                         </div>
 
@@ -459,21 +461,18 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                             </h3>
                             <div class="alert-cards">
                                 <div class="alert-card critical" id="fincasSinPotreros">
-                                    <div class="alert-icon">🌱</div>
                                     <div class="alert-content">
                                         <span class="alert-value">-</span>
                                         <span class="alert-label">Sin potreros</span>
                                     </div>
                                 </div>
                                 <div class="alert-card warning" id="fincasSinActividad">
-                                    <div class="alert-icon">📉</div>
                                     <div class="alert-content">
                                         <span class="alert-value">-</span>
                                         <span class="alert-label">Sin actividad 30+ días</span>
                                     </div>
                                 </div>
                                 <div class="alert-card info" id="fincasAreaSospechosa">
-                                    <div class="alert-icon">⚠️</div>
                                     <div class="alert-content">
                                         <span class="alert-value">-</span>
                                         <span class="alert-label">Área sospechosa</span>
@@ -494,14 +493,12 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                             </h3>
                             <div class="alert-cards">
                                 <div class="alert-card success" id="totalAlertas">
-                                    <div class="alert-icon">📊</div>
                                     <div class="alert-content">
                                         <span class="alert-value">-</span>
                                         <span class="alert-label">Total alertas</span>
                                     </div>
                                 </div>
                                 <div class="alert-card info" id="nivelCritico">
-                                    <div class="alert-icon">🎯</div>
                                     <div class="alert-content">
                                         <span class="alert-value">-</span>
                                         <span class="alert-label">Nivel crítico</span>

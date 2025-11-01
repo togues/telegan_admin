@@ -84,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['admin_role'] = $user['rol'];
                         $_SESSION['session_token'] = $sessionToken;
                         $_SESSION['session_timestamp'] = time(); // Timestamp para validar expiración
+                        $_SESSION['session_valid'] = true; // Marcar sesión como válida
                         
                         // Log de login exitoso
                         AuthSecurity::logSecurityEvent('LOGIN_SUCCESS', [
