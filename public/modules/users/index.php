@@ -97,8 +97,7 @@ $sessionToken = $_SESSION['session_token'] ?? null;
 <body>
     <!-- Breadcrumb -->
     <nav class="breadcrumb">
-        <a href="../../index.html">🏠 Inicio</a> > 
-        <a href="../index.html">Módulos</a> > 
+        <a href="../../dashboard.php">🏠 Dashboard</a> > 
         <span>Gestión de Usuarios</span>
     </nav>
 

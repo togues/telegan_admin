@@ -17,7 +17,7 @@ AuthSecurity::init();
 
 // Si ya está logueado, redirigir al dashboard
 if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
-    header('Location: ../public/dashboard.html');
+    header('Location: ../public/dashboard.php');
     exit;
 }
 

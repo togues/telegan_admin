@@ -158,3 +158,5 @@ COMMENT ON TABLE pending_confirmations IS 'Confirmaciones pendientes de email';
 
 
 
+
+

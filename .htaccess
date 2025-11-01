@@ -22,7 +22,7 @@ RewriteRule ^auth/(.*)$ auth/$1 [L]
 
 # Manejar rutas del dashboard
 RewriteCond %{REQUEST_URI} ^/dashboard$
-RewriteRule ^dashboard$ public/dashboard.html [L]
+RewriteRule ^dashboard$ public/dashboard.php [L]
 
 # Manejar archivos estáticos
 RewriteCond %{REQUEST_FILENAME} !-f
