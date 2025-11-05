@@ -24,7 +24,8 @@ class Security
         
         // Content Security Policy - TEMPORALMENTE DESACTIVADO para desarrollo
         // TODO: Reactivar y ajustar en producción
-        // header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https:;");
+        // Incluir cdnjs.cloudflare.com para SheetJS cuando se active:
+        // header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https:;");
     }
     
     /**

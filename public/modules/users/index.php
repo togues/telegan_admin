@@ -29,6 +29,8 @@ $sessionToken = $_SESSION['session_token'] ?? null;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Usuarios - Telegan Admin</title>
     <link rel="stylesheet" href="../../css/styles.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -122,8 +124,19 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         .pagination { display: flex; gap: 0.5rem; align-items: center; justify-content: flex-end; padding: 0.5rem; }
         .btn { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.4rem 0.75rem; height: 32px; border-radius: 8px; cursor: pointer; }
         .btn:disabled { opacity: .4; cursor: default; }
-        .btn-view-user { border: none; background: transparent; color: var(--text-secondary); padding: 0.25rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
+        .btn-view-user { border: none; background: transparent; color: var(--text-secondary); padding: 0.25rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; width: 28px; height: 28px; }
         .btn-view-user:hover { background: var(--bg-secondary); color: var(--accent-primary); transform: scale(1.1); }
+        .user-checkbox { cursor: pointer; }
+        .user-checkbox:checked { accent-color: var(--accent-primary); }
+        .btn-download { display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.4rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s ease; }
+        .btn-download:hover { background: var(--accent-primary); color: white; border-color: var(--accent-primary); transform: translateY(-1px); }
+        .btn-download:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-download svg { width: 16px; height: 16px; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        #farm-modal-nested { z-index: 10001 !important; }
+        #user-profile-modal { z-index: 10000; }
+        .farm-item { transition: all 0.2s ease; }
+        .farm-item:hover { background: var(--bg-secondary); transform: translateX(4px); }
         @media (max-width: 768px) {
             .toolbar > div:first-child { grid-template-columns: 1fr; gap: 0.5rem; }
             .toolbar > div:first-child input, .toolbar > div:first-child select { width: 100%; }
@@ -272,6 +285,14 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         <!-- Bulk Select -->
         <div class="bulk-select">
             <button id="selectAll">Marcar todos</button>
+            <button id="downloadUsers" class="btn-download" title="Descargar usuarios filtrados (CSV/Excel)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Descargar Usuarios
+            </button>
         </div>
 
         <!-- Bulk Actions -->
@@ -287,14 +308,14 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                 <thead class="sticky">
                     <tr>
                         <th style="width:40px;"></th>
+                        <th style="width:40px;"></th>
                         <th>Nombre</th>
                         <th>Email</th>
                         <th style="width:120px;">Teléfono</th>
                         <th style="width:120px;">Estado</th>
-                        <th style="width:160px;">Registro</th>
-                        <th style="width:160px;">Última sesión</th>
+                        <th style="width:120px;">Registro</th>
+                        <th style="width:120px;">Última sesión</th>
                         <th style="width:120px;">Código</th>
-                        <th style="width:60px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="tbody">
@@ -305,7 +326,7 @@ $sessionToken = $_SESSION['session_token'] ?? null;
     </main>
 
     <!-- User Profile Modal (reutilizado del dashboard) -->
-    <div id="user-profile-modal" class="search-modal" style="display: none;">
+    <div id="user-profile-modal" class="search-modal" style="display: none; z-index: 10000;">
         <div class="search-modal-overlay" onclick="closeUserProfileModal()"></div>
         <div class="search-modal-content">
             <!-- Modal Header -->
@@ -384,6 +405,143 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             </div>
         </div>
     </div>
+
+    <!-- Farm Modal (anidado sobre el modal de usuario) -->
+    <div id="farm-modal-nested" class="farm-main-modal" style="display: none; z-index: 10001;">
+        <div class="farm-modal-overlay" onclick="closeFarmModalNested()"></div>
+        <div class="farm-modal-content">
+            <!-- Farm Modal Header -->
+            <div class="farm-modal-header">
+                <div class="farm-header-info">
+                    <h2 class="farm-modal-title" id="farm-nested-title">Finca</h2>
+                    <p class="farm-modal-subtitle" id="farm-nested-subtitle">Detalles completos</p>
+                </div>
+                <div class="farm-header-actions">
+                    <button class="farm-back-btn" onclick="closeFarmModalNested()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                        Volver al Perfil
+                    </button>
+                    <button class="farm-modal-close" onclick="closeFarmModalNested()">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Farm Content -->
+            <div class="farm-modal-body">
+                <!-- Farm Basic Info -->
+                <div class="farm-info-section">
+                    <div class="farm-basic-info">
+                        <div class="farm-avatar">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                        </div>
+                        <div class="farm-info">
+                            <h3 class="farm-name" id="farm-nested-name">-</h3>
+                            <p class="farm-location" id="farm-nested-location">-</p>
+                            <div class="farm-status-row">
+                                <span class="status-badge" id="farm-nested-status">-</span>
+                                <span class="farm-area" id="farm-nested-area">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Farm Details Grid -->
+                <div class="farm-details-grid">
+                    <!-- Farm Data -->
+                    <div class="farm-detail-card">
+                        <h4 class="card-title">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14,2 14,8 20,8"></polyline>
+                            </svg>
+                            Información de la Finca
+                        </h4>
+                        <div class="detail-grid" id="farm-nested-details">
+                            <!-- Farm details will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Map Section -->
+                    <div class="farm-detail-card map-card">
+                        <h4 class="card-title">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            Ubicación Geográfica
+                        </h4>
+                        <div class="map-container" id="farm-nested-map" style="width: 100%; height: 400px; min-height: 400px; position: relative;">
+                            <div class="map-loading">
+                                <div class="loading-spinner"></div>
+                                <p>Cargando mapa...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Administrators -->
+                    <div class="farm-detail-card">
+                        <h4 class="card-title">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="8.5" cy="7" r="4"></circle>
+                                <line x1="20" y1="8" x2="20" y2="14"></line>
+                                <line x1="23" y1="11" x2="17" y2="11"></line>
+                            </svg>
+                            Administradores
+                        </h4>
+                        <div class="users-list" id="farm-nested-admins">
+                            <!-- Administrators will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Collaborators -->
+                    <div class="farm-detail-card">
+                        <h4 class="card-title">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            Colaboradores
+                        </h4>
+                        <div class="users-list" id="farm-nested-collaborators">
+                            <!-- Collaborators will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Paddocks -->
+                    <div class="farm-detail-card">
+                        <h4 class="card-title">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                                <path d="M2 17l10 5 10-5"></path>
+                                <path d="M2 12l10 5 10-5"></path>
+                            </svg>
+                            Potreros
+                        </h4>
+                        <div class="paddocks-list" id="farm-nested-paddocks">
+                            <!-- Paddocks will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS (para mapas de fincas) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- SheetJS para exportar a Excel/CSV (desde CDNJS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
     <script src="../../js/theme-common.js"></script>
     <script type="module" src="./users.js"></script>

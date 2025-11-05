@@ -71,6 +71,12 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         .btn { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.4rem 0.75rem; height: 32px; border-radius: 8px; cursor: pointer; transition: all var(--timing-fast) ease; }
         .btn:hover { background: var(--bg-secondary); }
         .btn:disabled { opacity: .4; cursor: default; }
+        .bulk-select { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .btn-download { display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.4rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s ease; }
+        .btn-download:hover { background: var(--accent-primary); color: white; border-color: var(--accent-primary); transform: translateY(-1px); }
+        .btn-download:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-download svg { width: 16px; height: 16px; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -210,6 +216,18 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             </div>
         </div>
 
+        <!-- Download Button -->
+        <div class="bulk-select" style="margin-bottom: 0.5rem;">
+            <button id="downloadUsers" class="btn-download" title="Descargar usuarios filtrados (CSV/Excel)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Descargar Usuarios
+            </button>
+        </div>
+
         <!-- Tabla usuarios -->
         <div class="table-wrap">
             <table class="users">
@@ -255,18 +273,26 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             prev: document.getElementById('prev'),
             next: document.getElementById('next'),
             pageInfo: document.getElementById('pageInfo'),
-            tbody: document.getElementById('tbody')
+            tbody: document.getElementById('tbody'),
+            downloadUsers: document.getElementById('downloadUsers')
         };
 
-        function buildUrl() {
+        function buildUrl(includePagination = true) {
             const params = new URLSearchParams();
             if (state.q) params.set('q', state.q);
             if (state.codigo) params.set('codigo', state.codigo);
             if (state.fechaDesde) params.set('fecha_desde', state.fechaDesde);
             if (state.fechaHasta) params.set('fecha_hasta', state.fechaHasta);
             if (state.activo !== '') params.set('activo', state.activo);
-            params.set('page', String(state.page));
-            params.set('page_size', String(state.pageSize));
+            
+            if (includePagination) {
+                params.set('page', String(state.page));
+                params.set('page_size', String(state.pageSize));
+            } else {
+                params.set('page', '1');
+                params.set('page_size', '10000');
+            }
+            
             return `api/alerts-users-no-farms.php?${params.toString()}`;
         }
 
@@ -355,8 +381,102 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         els.prev.addEventListener('click', () => { if (state.page > 1) { state.page--; loadUsers(); } });
         els.next.addEventListener('click', () => { if (state.page < state.totalPages) { state.page++; loadUsers(); } });
 
+        function fmtDateOnly(d) {
+            if (!d) return '';
+            try { 
+                const date = new Date(d);
+                return date.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            } catch (_) { 
+                if (typeof d === 'string' && d.includes('T')) {
+                    return d.split('T')[0].split('-').reverse().join('/');
+                }
+                return d; 
+            }
+        }
+
+        async function downloadUsers() {
+            const activeFilters = [];
+            if (state.q) activeFilters.push(`Búsqueda: "${state.q}"`);
+            if (state.codigo) activeFilters.push(`Código: "${state.codigo}"`);
+            if (state.fechaDesde) activeFilters.push(`Desde: ${state.fechaDesde}`);
+            if (state.fechaHasta) activeFilters.push(`Hasta: ${state.fechaHasta}`);
+            if (state.activo === '1') activeFilters.push('Estado: Activos');
+            if (state.activo === '0') activeFilters.push('Estado: Inactivos');
+            
+            const filterInfo = activeFilters.length > 0 
+                ? `\n\nFiltros aplicados:\n${activeFilters.join('\n')}` 
+                : '\n\n⚠️ Se descargarán TODOS los usuarios (sin filtros aplicados)';
+            
+            if (!confirm(`¿Descargar usuarios filtrados?${filterInfo}\n\nEl archivo contendrá los datos actualmente visibles según los filtros aplicados.`)) {
+                return;
+            }
+
+            try {
+                if (els.downloadUsers) {
+                    els.downloadUsers.disabled = true;
+                    els.downloadUsers.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"></circle></svg> Descargando...`;
+                }
+
+                const api = new ApiClient();
+                const url = buildUrl(false);
+                const response = await api.get(url);
+                
+                if (!response.success) {
+                    throw new Error(response.error || 'Error al obtener datos para descarga');
+                }
+
+                const users = response.data || [];
+                
+                if (users.length === 0) {
+                    alert('No hay usuarios para descargar con los filtros aplicados.');
+                    return;
+                }
+
+                const exportData = users.map(user => ({
+                    'ID': user.id_usuario,
+                    'Nombre Completo': user.nombre_completo || '',
+                    'Email': user.email || '',
+                    'Teléfono': user.telefono || '',
+                    'Estado': user.activo ? 'Activo' : 'Inactivo',
+                    'Fecha Registro': user.fecha_registro ? fmtDateOnly(user.fecha_registro) : '',
+                    'Última Sesión': user.ultima_sesion ? fmtDate(user.ultima_sesion) : 'Nunca',
+                    'Código Telegan': user.codigo_telegan || ''
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Usuarios Sin Fincas');
+
+                if (activeFilters.length > 0) {
+                    const filterData = [{ 'Filtros Aplicados': activeFilters.join('; ') }];
+                    const filterWs = XLSX.utils.json_to_sheet(filterData);
+                    XLSX.utils.book_append_sheet(wb, filterWs, 'Filtros');
+                }
+
+                const dateStr = new Date().toISOString().split('T')[0];
+                const fileName = `usuarios_sin_fincas_${dateStr}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+
+                alert(`✅ ${users.length} usuario(s) descargado(s) exitosamente.\n\nArchivo: ${fileName}`);
+            } catch (error) {
+                console.error('Error al descargar usuarios:', error);
+                alert('Error al descargar usuarios: ' + error.message);
+            } finally {
+                if (els.downloadUsers) {
+                    els.downloadUsers.disabled = false;
+                    els.downloadUsers.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Descargar Usuarios`;
+                }
+            }
+        }
+
+        if (els.downloadUsers) {
+            els.downloadUsers.addEventListener('click', downloadUsers);
+        }
+
         loadUsers();
     </script>
+    <!-- SheetJS para exportar a Excel/CSV (desde CDNJS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
     <script src="../../js/theme-common.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {

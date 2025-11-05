@@ -27,18 +27,26 @@ const els = {
   selectAll: document.getElementById('selectAll'),
   bulkActions: document.getElementById('bulkActions'),
   bulkBtnActivate: document.getElementById('bulkBtnActivate'),
-  bulkBtnDeactivate: document.getElementById('bulkBtnDeactivate')
+  bulkBtnDeactivate: document.getElementById('bulkBtnDeactivate'),
+  downloadUsers: document.getElementById('downloadUsers')
 };
 
-function buildUrl() {
+function buildUrl(includePagination = true) {
   const params = new URLSearchParams();
   if (state.q) params.set('q', state.q);
   if (state.codigo) params.set('codigo', state.codigo);
   if (state.fechaDesde) params.set('fecha_desde', state.fechaDesde);
   if (state.fechaHasta) params.set('fecha_hasta', state.fechaHasta);
   if (state.activo !== '') params.set('activo', state.activo);
-  params.set('page', String(state.page));
-  params.set('page_size', String(state.pageSize));
+  
+  if (includePagination) {
+    params.set('page', String(state.page));
+    params.set('page_size', String(state.pageSize));
+  } else {
+    // Para descarga, obtener todos los resultados (sin paginación)
+    params.set('page', '1');
+    params.set('page_size', '10000'); // Número grande para obtener todos
+  }
   
   // URL relativa que ApiClient convertirá a la ruta completa
   return `api/users-list.php?${params.toString()}`;
@@ -83,6 +91,20 @@ function fmtDate(d) {
   try { return new Date(d).toLocaleString(); } catch (_) { return d; }
 }
 
+function fmtDateOnly(d) {
+  if (!d) return '';
+  try { 
+    const date = new Date(d);
+    return date.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  } catch (_) { 
+    // Si falla, intentar solo la parte de fecha si viene en formato ISO
+    if (typeof d === 'string' && d.includes('T')) {
+      return d.split('T')[0].split('-').reverse().join('/');
+    }
+    return d; 
+  }
+}
+
 function renderRows(rows) {
   if (!rows.length) {
     els.tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: var(--text-secondary); padding: 16px;">Sin resultados</td></tr>`;
@@ -105,15 +127,10 @@ function renderRows(rows) {
     
     return `
       <tr>
-        <td><input type="checkbox" class="user-checkbox" value="${r.id_usuario}" ${isChecked}></td>
-        <td>${escapeHtml(r.nombre_completo)}</td>
-        <td>${escapeHtml(r.email || '')}</td>
-        <td>${escapeHtml(r.telefono || '')}</td>
-        <td><span class="status-dot ${dot}"></span>${r.activo ? 'Activo' : 'Inactivo'}</td>
-        <td>${fmtDate(r.fecha_registro)}</td>
-        <td>${fmtDate(r.ultima_sesion)}</td>
-        <td>${escapeHtml(r.codigo_telegan || '')}</td>
-        <td>
+        <td style="text-align: center;">
+          <input type="checkbox" class="user-checkbox" value="${r.id_usuario}" ${isChecked}>
+        </td>
+        <td style="text-align: center;">
           <button class="btn-view-user" data-user-id="${r.id_usuario}" data-user-data='${userDataAttr}' title="Ver perfil completo">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -121,6 +138,13 @@ function renderRows(rows) {
             </svg>
           </button>
         </td>
+        <td>${escapeHtml(r.nombre_completo)}</td>
+        <td>${escapeHtml(r.email || '')}</td>
+        <td>${escapeHtml(r.telefono || '')}</td>
+        <td><span class="status-dot ${dot}"></span>${r.activo ? 'Activo' : 'Inactivo'}</td>
+        <td>${fmtDateOnly(r.fecha_registro)}</td>
+        <td>${fmtDate(r.ultima_sesion)}</td>
+        <td>${escapeHtml(r.codigo_telegan || '')}</td>
       </tr>`;
   }).join('');
   els.tbody.innerHTML = html;
@@ -253,6 +277,121 @@ function clearFilters() {
   loadUsers();
 }
 
+/**
+ * Descargar usuarios filtrados en CSV/Excel
+ */
+async function downloadUsers() {
+  // Mostrar advertencia sobre qué se descargará
+  const activeFilters = [];
+  if (state.q) activeFilters.push(`Búsqueda: "${state.q}"`);
+  if (state.codigo) activeFilters.push(`Código: "${state.codigo}"`);
+  if (state.fechaDesde) activeFilters.push(`Desde: ${state.fechaDesde}`);
+  if (state.fechaHasta) activeFilters.push(`Hasta: ${state.fechaHasta}`);
+  if (state.activo === '1') activeFilters.push('Estado: Activos');
+  if (state.activo === '0') activeFilters.push('Estado: Inactivos');
+  
+  const filterInfo = activeFilters.length > 0 
+    ? `\n\nFiltros aplicados:\n${activeFilters.join('\n')}` 
+    : '\n\n⚠️ Se descargarán TODOS los usuarios (sin filtros aplicados)';
+  
+  if (!confirm(`¿Descargar usuarios filtrados?${filterInfo}\n\nEl archivo contendrá los datos actualmente visibles según los filtros aplicados.`)) {
+    return;
+  }
+
+  try {
+    // Mostrar loading
+    if (els.downloadUsers) {
+      els.downloadUsers.disabled = true;
+      els.downloadUsers.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
+          <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32">
+            <animate attributeName="stroke-dasharray" dur="2s" values="0 32;16 16;0 32;0 32" repeatCount="indefinite"/>
+            <animate attributeName="stroke-dashoffset" dur="2s" values="0;-16;-32;-32" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+        Descargando...
+      `;
+    }
+
+    // Obtener todos los datos filtrados (sin paginación)
+    const api = new ApiClient();
+    const url = buildUrl(false); // Sin paginación
+    const response = await api.get(url);
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Error al obtener datos para descarga');
+    }
+
+    const users = response.data || [];
+    
+    if (users.length === 0) {
+      alert('No hay usuarios para descargar con los filtros aplicados.');
+      return;
+    }
+
+    // Preparar datos para exportación
+    const exportData = users.map(user => ({
+      'ID': user.id_usuario,
+      'Nombre Completo': user.nombre_completo || '',
+      'Email': user.email || '',
+      'Teléfono': user.telefono || '',
+      'Estado': user.activo ? 'Activo' : 'Inactivo',
+      'Email Verificado': user.email_verificado ? 'Sí' : 'No',
+      'Teléfono Verificado': user.telefono_verificado ? 'Sí' : 'No',
+      'Fecha Registro': user.fecha_registro ? fmtDateOnly(user.fecha_registro) : '',
+      'Última Sesión': user.ultima_sesion ? fmtDate(user.ultima_sesion) : 'Nunca',
+      'Código Telegan': user.codigo_telegan || '',
+      'Ubicación General': user.ubicacion_general || ''
+    }));
+
+    // Crear libro de trabajo Excel
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Usuarios');
+
+    // Agregar información de filtros como segunda hoja (opcional)
+    if (activeFilters.length > 0) {
+      const filterData = [{ 'Filtros Aplicados': activeFilters.join('; ') }];
+      const filterWs = XLSX.utils.json_to_sheet(filterData);
+      XLSX.utils.book_append_sheet(wb, filterWs, 'Filtros');
+    }
+
+    // Generar nombre de archivo con fecha y filtros
+    const dateStr = new Date().toISOString().split('T')[0];
+    const fileName = `usuarios_telegan_${dateStr}.xlsx`;
+
+    // Descargar archivo Excel
+    XLSX.writeFile(wb, fileName);
+
+    // También generar CSV (alternativo)
+    // const csv = XLSX.utils.sheet_to_csv(ws);
+    // const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // const csvFileName = `usuarios_telegan_${dateStr}.csv`;
+    // const link = document.createElement('a');
+    // link.href = URL.createObjectURL(blob);
+    // link.download = csvFileName;
+    // link.click();
+
+    alert(`✅ ${users.length} usuario(s) descargado(s) exitosamente.\n\nArchivo: ${fileName}`);
+  } catch (error) {
+    console.error('Error al descargar usuarios:', error);
+    alert('Error al descargar usuarios: ' + error.message);
+  } finally {
+    // Restaurar botón
+    if (els.downloadUsers) {
+      els.downloadUsers.disabled = false;
+      els.downloadUsers.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Descargar Usuarios
+      `;
+    }
+  }
+}
+
 // Events
 els.q.addEventListener('input', debounce(e => { state.q = e.target.value.trim(); state.page = 1; loadUsers(); }, 300));
 els.codigo.addEventListener('input', debounce(e => { state.codigo = e.target.value.trim(); state.page = 1; loadUsers(); }, 300));
@@ -277,6 +416,11 @@ if (els.bulkBtnActivate) {
 }
 if (els.bulkBtnDeactivate) {
   els.bulkBtnDeactivate.addEventListener('click', () => performBulkOperation('deactivate'));
+}
+
+// Botón descargar usuarios
+if (els.downloadUsers) {
+  els.downloadUsers.addEventListener('click', downloadUsers);
 }
 
 // ===================================
@@ -446,7 +590,7 @@ async function loadUserFarms(userId) {
 }
 
 /**
- * Mostrar fincas del usuario
+ * Mostrar fincas del usuario (clickeables para abrir modal)
  */
 function displayUserFarms(farms) {
   const farmsList = document.getElementById('farms-list');
@@ -464,20 +608,40 @@ function displayUserFarms(farms) {
     return;
   }
 
-  const farmsHTML = farms.map(farm => `
-    <div class="farm-item">
-      <div class="farm-info">
-        <h5>${escapeHtml(farm.nombre_finca || 'Sin nombre')}</h5>
-        <p>${escapeHtml(farm.display_info || '')}</p>
-        <small>Rol: ${escapeHtml(farm.rol_text || 'N/A')} • Creada: ${escapeHtml(farm.fecha_creacion || 'N/A')}</small>
+  const farmsHTML = farms.map(farm => {
+    const farmDataAttr = encodeURIComponent(JSON.stringify(farm));
+    return `
+      <div class="farm-item" style="cursor: pointer;" data-farm-id="${farm.id_finca}" data-farm-data='${farmDataAttr}'>
+        <div class="farm-info">
+          <h5>${escapeHtml(farm.nombre_finca || 'Sin nombre')}</h5>
+          <p>${escapeHtml(farm.display_info || '')}</p>
+          <small>Rol: ${escapeHtml(farm.rol_text || 'N/A')} • Creada: ${escapeHtml(farm.fecha_creacion || 'N/A')}</small>
+        </div>
+        <div class="farm-status">
+          <span class="status-badge ${farm.estado_class || 'info'}">${escapeHtml(farm.estado_text || 'Desconocido')}</span>
+        </div>
       </div>
-      <div class="farm-status">
-        <span class="status-badge ${farm.estado_class || 'info'}">${escapeHtml(farm.estado_text || 'Desconocido')}</span>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   farmsList.innerHTML = farmsHTML;
+
+  // Agregar event listeners a las fincas para abrir modal
+  document.querySelectorAll('.farm-item').forEach(item => {
+    item.addEventListener('click', function() {
+      const farmId = parseInt(this.getAttribute('data-farm-id'));
+      const farmDataStr = this.getAttribute('data-farm-data');
+      let farmData = null;
+      try {
+        farmData = JSON.parse(decodeURIComponent(farmDataStr));
+      } catch (e) {
+        console.error('Error parseando datos de finca:', e);
+      }
+      if (farmData) {
+        showFarmModalFromUserProfile(farmId, farmData);
+      }
+    });
+  });
 }
 
 /**
@@ -499,11 +663,419 @@ function showFarmsError(message) {
   `;
 }
 
-// Cerrar modal con Escape
+// ===================================
+// Farm Modal Functions (Anidado)
+// ===================================
+
+/**
+ * Mostrar modal de finca desde el perfil de usuario
+ */
+window.showFarmModalFromUserProfile = async function(farmId, farmDataBasic = null) {
+  const farmModal = document.getElementById('farm-modal-nested');
+  if (!farmModal) {
+    console.error('Modal de finca no encontrado');
+    return;
+  }
+
+  // Mostrar loading
+  document.getElementById('farm-nested-name').textContent = 'Cargando...';
+  document.getElementById('farm-nested-location').textContent = 'Obteniendo datos...';
+  
+  // Mostrar modal PRIMERO
+  farmModal.style.display = 'flex';
+  
+  // Esperar a que el modal esté visible antes de continuar
+  await new Promise(resolve => {
+    requestAnimationFrame(() => {
+      farmModal.classList.add('show');
+      // Dar tiempo adicional para que el navegador renderice el modal
+      setTimeout(resolve, 300);
+    });
+  });
+
+  // Cargar datos completos de la finca
+  try {
+    const api = new ApiClient();
+    const response = await api.get(`api/farm-details.php?farm_id=${farmId}`);
+
+    if (response && response.success) {
+      // Poblar datos del modal
+      populateFarmModalNested(response.data);
+      
+      // IMPORTANTE: Inicializar mapa DESPUÉS de que el modal esté visible
+      // Esperar un frame más para asegurar que el contenedor tiene dimensiones
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (response.data.farm) {
+            initializeFarmMapNested(response.data.farm);
+          }
+        });
+      });
+    } else {
+      throw new Error(response.error || 'Error al cargar datos de finca');
+    }
+  } catch (error) {
+    console.error('Error al cargar finca:', error);
+    document.getElementById('farm-nested-name').textContent = 'Error al cargar';
+    document.getElementById('farm-nested-location').textContent = 'No se pudieron cargar los datos';
+  }
+};
+
+/**
+ * Cerrar modal de finca anidado
+ */
+window.closeFarmModalNested = function() {
+  const farmModal = document.getElementById('farm-modal-nested');
+  if (farmModal) {
+    farmModal.classList.remove('show');
+    setTimeout(() => {
+      farmModal.style.display = 'none';
+      // Limpiar mapa si existe
+      cleanupNestedFarmMap();
+    }, 300);
+  }
+};
+
+/**
+ * Poblar datos en el modal de finca anidado
+ */
+function populateFarmModalNested(data) {
+  const { farm, administrators, collaborators, paddocks, stats } = data;
+
+  // Información básica
+  document.getElementById('farm-nested-title').textContent = farm.nombre_finca || 'Finca';
+  document.getElementById('farm-nested-subtitle').textContent = (farm.display_info?.pais || '') + ' • ' + (farm.display_info?.area || '');
+  document.getElementById('farm-nested-name').textContent = farm.nombre_finca || '-';
+  document.getElementById('farm-nested-location').textContent = farm.nombre_pais || 'Ubicación no especificada';
+  document.getElementById('farm-nested-status').textContent = farm.estado_text || '-';
+  document.getElementById('farm-nested-status').className = `status-badge ${farm.estado_class || 'info'}`;
+  document.getElementById('farm-nested-area').textContent = farm.display_info?.area || '-';
+
+  // Detalles de la finca
+  const detailsContainer = document.getElementById('farm-nested-details');
+  if (detailsContainer) {
+    detailsContainer.innerHTML = `
+      <div class="detail-item">
+        <label>Descripción</label>
+        <span>${escapeHtml(farm.descripcion || 'No especificada')}</span>
+      </div>
+      <div class="detail-item">
+        <label>Área Total</label>
+        <span>${escapeHtml(farm.display_info?.area || 'N/A')}</span>
+      </div>
+      <div class="detail-item">
+        <label>Estado</label>
+        <span>${escapeHtml(farm.estado_text || 'N/A')}</span>
+      </div>
+      <div class="detail-item">
+        <label>Fecha Creación</label>
+        <span>${escapeHtml(farm.fecha_creacion || 'N/A')}</span>
+      </div>
+      <div class="detail-item">
+        <label>Código Telegan</label>
+        <span>${escapeHtml(farm.codigo_telegan || 'No asignado')}</span>
+      </div>
+      <div class="detail-item">
+        <label>Creador</label>
+        <span>${escapeHtml(farm.creador_nombre || 'No especificado')}</span>
+      </div>
+    `;
+  }
+
+  // Administradores
+  populateFarmUsersList('farm-nested-admins', administrators || []);
+
+  // Colaboradores
+  populateFarmUsersList('farm-nested-collaborators', collaborators || []);
+
+  // Potreros
+  populateFarmPaddocksList('farm-nested-paddocks', paddocks || []);
+
+  // NOTA: El mapa se inicializa DESPUÉS desde showFarmModalFromUserProfile
+  // para asegurar que el modal esté visible antes de inicializar Leaflet
+}
+
+/**
+ * Poblar lista de usuarios en el modal de finca
+ */
+function populateFarmUsersList(containerId, users) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (users.length === 0) {
+    container.innerHTML = '<div class="no-users"><p>No hay usuarios registrados</p></div>';
+    return;
+  }
+
+  const usersHTML = users.map(user => `
+    <div class="user-item">
+      <div class="user-avatar">${escapeHtml(user.initials || 'U')}</div>
+      <div class="user-info">
+        <h5>${escapeHtml(user.nombre_completo || 'Sin nombre')}</h5>
+        <p>${escapeHtml(user.email || 'No especificado')} • ${escapeHtml(user.nombre_pais || user.ubicacion_general || 'Sin ubicación')}</p>
+        <small>Asociado: ${escapeHtml(user.fecha_asociacion || 'N/A')}</small>
+      </div>
+    </div>
+  `).join('');
+
+  container.innerHTML = usersHTML;
+}
+
+/**
+ * Poblar lista de potreros en el modal de finca
+ */
+function populateFarmPaddocksList(containerId, paddocks) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (paddocks.length === 0) {
+    container.innerHTML = '<div class="no-paddocks"><p>No hay potreros registrados</p></div>';
+    return;
+  }
+
+  const paddocksHTML = paddocks.map(paddock => `
+    <div class="paddock-item">
+      <div class="paddock-info">
+        <h5>${escapeHtml(paddock.nombre_potrero || 'Sin nombre')}</h5>
+        <p>${escapeHtml(paddock.display_info || '')}</p>
+        <small>Creado: ${escapeHtml(paddock.fecha_creacion || 'N/A')} • Último registro: ${escapeHtml(paddock.ultimo_registro || 'N/A')}</small>
+      </div>
+      <div class="paddock-status">
+        <span class="status-badge ${escapeHtml(paddock.estado_class || 'info')}">${escapeHtml(paddock.estado_text || 'Desconocido')}</span>
+      </div>
+    </div>
+  `).join('');
+
+  container.innerHTML = paddocksHTML;
+}
+
+// Variable global para el mapa anidado
+let nestedFarmMap = null;
+
+/**
+ * Inicializar mapa de finca en modal anidado
+ * IMPORTANTE: Esta función debe llamarse DESPUÉS de que el modal esté visible
+ */
+function initializeFarmMapNested(farm) {
+  const mapContainer = document.getElementById('farm-nested-map');
+  if (!mapContainer) {
+    console.warn('Contenedor de mapa no encontrado');
+    return;
+  }
+
+  // Verificar que el contenedor esté visible y tenga dimensiones
+  const containerRect = mapContainer.getBoundingClientRect();
+  if (containerRect.width === 0 || containerRect.height === 0) {
+    console.warn('Contenedor de mapa no tiene dimensiones, reintentando...');
+    // Reintentar después de un breve delay
+    setTimeout(() => initializeFarmMapNested(farm), 100);
+    return;
+  }
+
+  // Limpiar mapa anterior
+  if (nestedFarmMap) {
+    try {
+      nestedFarmMap.remove();
+      nestedFarmMap = null;
+    } catch (e) {
+      console.warn('Error limpiando mapa anterior:', e);
+      nestedFarmMap = null;
+    }
+  }
+
+  mapContainer.innerHTML = '';
+
+  // Verificar si tiene geometría
+  if (!farm.geometria_wkt && !farm.geometria_postgis && !farm.geojson) {
+    mapContainer.innerHTML = `
+      <div class="map-no-geometry">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+        <h4>Sin Ubicación Geográfica</h4>
+        <p>Esta finca no tiene coordenadas registradas</p>
+      </div>
+    `;
+    return;
+  }
+
+  try {
+    // Asegurar que el contenedor tenga altura mínima
+    if (!mapContainer.style.height || mapContainer.style.height === '0px') {
+      mapContainer.style.height = '400px';
+      mapContainer.style.minHeight = '400px';
+    }
+
+    // Inicializar mapa SOLO cuando el contenedor está visible
+    nestedFarmMap = L.map('farm-nested-map', {
+      center: [15.45, -90.35],
+      zoom: 15,
+      zoomControl: true,
+      attributionControl: true,
+      // Configuraciones adicionales para mapas en modales
+      fadeAnimation: true,
+      zoomAnimation: true
+    });
+
+    // CRÍTICO: Forzar recálculo de tamaño después de inicializar
+    setTimeout(() => {
+      if (nestedFarmMap) {
+        nestedFarmMap.invalidateSize();
+      }
+    }, 100);
+
+    // Capa satelital con mejor configuración
+    const tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri &mdash; Source: Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
+      maxZoom: 18,
+      crossOrigin: true,
+      // Forzar recarga de tiles si hay problemas
+      updateWhenIdle: false,
+      updateWhenZooming: true
+    });
+    
+    tileLayer.addTo(nestedFarmMap);
+    
+    // Forzar actualización de tiles después de agregar la capa
+    setTimeout(() => {
+      if (nestedFarmMap) {
+        nestedFarmMap.invalidateSize(true); // true = recalcular inmediatamente
+        tileLayer.redraw();
+      }
+    }, 200);
+
+    // Parsear y agregar geometría
+    if (farm.geojson) {
+      // Si es un Geometry object, envolverlo en Feature
+      let geoJSONData = farm.geojson;
+      if (geoJSONData.type === 'Point' || geoJSONData.type === 'Polygon' || geoJSONData.type === 'MultiPolygon') {
+        geoJSONData = {
+          type: 'Feature',
+          geometry: geoJSONData,
+          properties: {}
+        };
+      }
+
+      const geoJSONLayer = L.geoJSON(geoJSONData, {
+        style: {
+          color: '#6dbe45',
+          weight: 3,
+          opacity: 0.8,
+          fillColor: '#6dbe45',
+          fillOpacity: 0.2
+        }
+      }).addTo(nestedFarmMap);
+
+      // Ajustar vista con invalidateSize primero
+      setTimeout(() => {
+        if (nestedFarmMap && geoJSONLayer) {
+          try {
+            nestedFarmMap.invalidateSize(true);
+            nestedFarmMap.fitBounds(geoJSONLayer.getBounds(), { padding: [20, 20] });
+            // Forzar redraw de tiles después de ajustar vista
+            setTimeout(() => {
+              if (nestedFarmMap) {
+                nestedFarmMap.invalidateSize(true);
+              }
+            }, 100);
+          } catch (e) {
+            console.warn('Error ajustando vista del mapa:', e);
+          }
+        }
+      }, 150);
+    } else if (farm.geometria_wkt || farm.geometria_postgis) {
+      // Intentar parsear WKT si no hay GeoJSON
+      try {
+        const wktString = farm.geometria_wkt || farm.geometria_postgis;
+        if (wktString && wktString.trim() !== '' && wktString.toLowerCase() !== 'null') {
+          // Parseo básico de WKT POLYGON
+          const coordMatch = wktString.match(/POLYGON\(\(([^)]+)\)\)/);
+          if (coordMatch) {
+            const coordString = coordMatch[1];
+            const coords = coordString.split(',').map(coord => {
+              const parts = coord.trim().split(/\s+/);
+              if (parts.length === 2) {
+                const lng = parseFloat(parts[0]);
+                const lat = parseFloat(parts[1]);
+                if (!isNaN(lng) && !isNaN(lat)) {
+                  return [lat, lng];
+                }
+              }
+              return null;
+            }).filter(c => c !== null);
+
+            if (coords.length >= 3) {
+              const polygonLayer = L.polygon(coords, {
+                color: '#6dbe45',
+                weight: 3,
+                opacity: 0.8,
+                fillColor: '#6dbe45',
+                fillOpacity: 0.2
+              }).addTo(nestedFarmMap);
+
+              // Ajustar vista con invalidateSize primero
+              setTimeout(() => {
+                if (nestedFarmMap && polygonLayer) {
+                  try {
+                    nestedFarmMap.invalidateSize(true);
+                    nestedFarmMap.fitBounds(polygonLayer.getBounds(), { padding: [20, 20] });
+                    // Forzar redraw de tiles después de ajustar vista
+                    setTimeout(() => {
+                      if (nestedFarmMap) {
+                        nestedFarmMap.invalidateSize(true);
+                      }
+                    }, 100);
+                  } catch (e) {
+                    console.warn('Error ajustando vista del mapa:', e);
+                  }
+                }
+              }, 150);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error parseando WKT:', e);
+      }
+    }
+  } catch (error) {
+    console.error('Error inicializando mapa:', error);
+    mapContainer.innerHTML = `
+      <div class="map-error">
+        <p>Error al cargar el mapa</p>
+      </div>
+    `;
+  }
+}
+
+/**
+ * Limpiar mapa anidado
+ */
+function cleanupNestedFarmMap() {
+  if (nestedFarmMap) {
+    try {
+      nestedFarmMap.remove();
+      nestedFarmMap = null;
+    } catch (e) {
+      console.warn('Error limpiando mapa:', e);
+      nestedFarmMap = null;
+    }
+  }
+}
+
+// Cerrar modales con Escape
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    const modal = document.getElementById('user-profile-modal');
-    if (modal && modal.classList.contains('show')) {
+    // Cerrar modal de finca primero (si está abierto)
+    const farmModal = document.getElementById('farm-modal-nested');
+    if (farmModal && farmModal.classList.contains('show')) {
+      closeFarmModalNested();
+      return;
+    }
+    
+    // Luego cerrar modal de usuario
+    const userModal = document.getElementById('user-profile-modal');
+    if (userModal && userModal.classList.contains('show')) {
       closeUserProfileModal();
     }
   }

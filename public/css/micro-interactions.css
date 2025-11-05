@@ -1,0 +1,719 @@
+/* ===================================
+   MICROINTERACCIONES - Sistema de Clases Reutilizables
+   =================================== */
+
+/* ===================================
+   Variables de Timing y Espaciado
+   =================================== */
+:root {
+  /* Timing de animaciones */
+  --timing-fast: 150ms;
+  --timing-base: 250ms;
+  --timing-slow: 350ms;
+  
+  /* Blur effects */
+  --blur-sm: blur(4px);
+  --blur-md: blur(8px);
+  --blur-lg: blur(16px);
+  
+  /* Shadows dinámicas */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] {
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* ===================================
+   CLASES BASE DE TRANSICIONES
+   =================================== */
+
+/* Transición suave general */
+.transition-base {
+  transition: all var(--timing-base) ease;
+}
+
+.transition-fast {
+  transition: all var(--timing-fast) ease;
+}
+
+.transition-slow {
+  transition: all var(--timing-slow) ease;
+}
+
+/* Transiciones específicas */
+.transition-transform {
+  transition: transform var(--timing-base) ease;
+}
+
+.transition-shadow {
+  transition: box-shadow var(--timing-base) ease;
+}
+
+.transition-bg {
+  transition: background-color var(--timing-base) ease, color var(--timing-base) ease;
+}
+
+.transition-all {
+  transition: all var(--timing-base) ease;
+}
+
+/* ===================================
+   CLASES DE TRANSFORMACIONES
+   =================================== */
+
+/* Hover: Elevación (translateY hacia arriba) */
+.hover-lift {
+  transition: transform var(--timing-base) ease, box-shadow var(--timing-base) ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Hover: Elevación suave (menos movimiento) */
+.hover-lift-sm {
+  transition: transform var(--timing-base) ease, box-shadow var(--timing-base) ease;
+}
+
+.hover-lift-sm:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Hover: Escala (crecer) */
+.hover-scale {
+  transition: transform var(--timing-base) ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.1);
+}
+
+/* Hover: Escala + Rotación (avatar effect) */
+.hover-scale-rotate {
+  transition: transform var(--timing-base) ease, box-shadow var(--timing-base) ease;
+}
+
+.hover-scale-rotate:hover {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: var(--shadow-md);
+}
+
+/* Hover: Desplazamiento horizontal (menú items) */
+.hover-slide-x {
+  transition: transform var(--timing-fast) ease, background var(--timing-base) ease;
+}
+
+.hover-slide-x:hover {
+  transform: translateX(2px);
+}
+
+/* Hover: Desplazamiento horizontal mayor (search results) */
+.hover-slide-x-lg {
+  transition: transform var(--timing-fast) ease, border-color var(--timing-base) ease;
+}
+
+.hover-slide-x-lg:hover {
+  transform: translateX(8px);
+  border-left: 3px solid var(--accent-primary);
+}
+
+/* Hover: Rotación (refresh button) */
+.hover-rotate {
+  transition: transform var(--timing-base) ease;
+}
+
+.hover-rotate:hover {
+  transform: rotate(180deg);
+}
+
+/* ===================================
+   CLASES DE SOMBRAS DINÁMICAS
+   =================================== */
+
+/* Sombra que aumenta en hover */
+.shadow-hover {
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--timing-base) ease;
+}
+
+.shadow-hover:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* Sombra que aumenta en hover (header) */
+.shadow-hover-header {
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--timing-base) ease;
+}
+
+.shadow-hover-header:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* ===================================
+   CLASES DE FONDO Y COLOR
+   =================================== */
+
+/* Cambio de fondo en hover */
+.bg-hover {
+  transition: background-color var(--timing-base) ease, color var(--timing-base) ease;
+}
+
+.bg-hover:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Cambio de fondo a color primario en hover */
+.bg-hover-primary {
+  transition: background-color var(--timing-base) ease, color var(--timing-base) ease;
+}
+
+.bg-hover-primary:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+/* ===================================
+   CLASES DE BORDES
+   =================================== */
+
+/* Borde que aparece en hover */
+.border-hover {
+  border: 1px solid transparent;
+  transition: border-color var(--timing-base) ease;
+}
+
+.border-hover:hover {
+  border-color: var(--border-color);
+}
+
+/* Borde de color primario en hover */
+.border-hover-primary {
+  border: 1px solid transparent;
+  transition: border-color var(--timing-base) ease;
+}
+
+.border-hover-primary:hover {
+  border-color: var(--accent-primary);
+}
+
+/* ===================================
+   CLASES DE EFECTOS ESPECIALES
+   =================================== */
+
+/* Efecto shimmer (brillo que pasa) */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.3) 100%);
+  opacity: 0;
+  transition: opacity var(--timing-base) ease;
+}
+
+.shimmer:hover::before {
+  opacity: 1;
+}
+
+/* Efecto de barra superior animada (stat cards) */
+.top-bar-animated {
+  position: relative;
+  overflow: hidden;
+}
+
+.top-bar-animated::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--timing-slow) ease;
+}
+
+.top-bar-animated:hover::before {
+  transform: scaleX(1);
+}
+
+/* ===================================
+   CLASES DE BOTONES
+   =================================== */
+
+/* Botón primario con efecto hover */
+.btn-micro {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--timing-fast) ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-micro-primary {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.btn-micro-primary:hover {
+  background: #5ba83a;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-micro-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+}
+
+.btn-micro-secondary:hover {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+/* ===================================
+   CLASES DE INPUTS
+   =================================== */
+
+/* Input con efecto focus */
+.input-micro {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 1rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: all var(--timing-base) ease;
+}
+
+.input-micro:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(109, 190, 69, 0.1);
+  transform: translateY(-1px);
+}
+
+/* ===================================
+   CLASES DE CARDS
+   =================================== */
+
+/* Card con efecto hover completo */
+.card-micro {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--timing-base) ease;
+}
+
+.card-micro:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+}
+
+/* Card con efecto hover suave */
+.card-micro-sm {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--timing-base) ease;
+}
+
+.card-micro-sm:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* ===================================
+   CLASES DE AVATARES
+   =================================== */
+
+/* Avatar con efecto hover */
+.avatar-micro {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--timing-base) ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.avatar-micro::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.3) 100%);
+  opacity: 0;
+  transition: opacity var(--timing-base) ease;
+}
+
+.avatar-micro:hover {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: var(--shadow-md);
+}
+
+.avatar-micro:hover::before {
+  opacity: 1;
+}
+
+/* ===================================
+   CLASES DE MODALES
+   =================================== */
+
+/* Overlay con blur */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: var(--blur-lg);
+  -webkit-backdrop-filter: var(--blur-lg);
+  animation: fadeIn var(--timing-base) ease;
+}
+
+/* Contenido del modal con animación */
+.modal-content {
+  position: relative;
+  background: var(--bg-card);
+  border-radius: 16px;
+  box-shadow: var(--shadow-xl);
+  animation: slideDown var(--timing-slow) ease;
+}
+
+/* ===================================
+   CLASES DE LISTAS
+   =================================== */
+
+/* Item de lista con hover */
+.list-item-micro {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all var(--timing-fast) ease;
+  border: 1px solid transparent;
+}
+
+.list-item-micro:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  transform: translateX(8px);
+  border-left: 3px solid var(--accent-primary);
+}
+
+.list-item-micro:active {
+  transform: translateX(4px);
+}
+
+/* ===================================
+   CLASES DE TABS
+   =================================== */
+
+/* Tab button con transición */
+.tab-micro {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--timing-base) ease;
+  border-radius: 6px 6px 0 0;
+}
+
+.tab-micro:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.tab-micro.active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+  background: var(--bg-card);
+}
+
+/* ===================================
+   ANIMACIONES KEYFRAMES
+   =================================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes loading {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ===================================
+   CLASES DE ANIMACIONES
+   =================================== */
+
+/* Aplicar animación fadeIn */
+.animate-fade-in {
+  animation: fadeIn var(--timing-base) ease;
+}
+
+/* Aplicar animación fadeInUp */
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Aplicar animación slideDown */
+.animate-slide-down {
+  animation: slideDown var(--timing-slow) ease;
+}
+
+/* Aplicar animación loading */
+.animate-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: loading 1.5s infinite;
+}
+
+/* Aplicar animación spin */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Aplicar animación pulse */
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* ===================================
+   CLASES DE DELAY (stagger effect)
+   =================================== */
+
+/* Delay para animaciones en secuencia */
+.delay-1 {
+  animation-delay: 0.1s;
+}
+
+.delay-2 {
+  animation-delay: 0.2s;
+}
+
+.delay-3 {
+  animation-delay: 0.3s;
+}
+
+.delay-4 {
+  animation-delay: 0.4s;
+}
+
+.delay-5 {
+  animation-delay: 0.5s;
+}
+
+/* ===================================
+   CLASES COMBINADAS (Utilidades)
+   =================================== */
+
+/* Combinación: Card + Lift + Shadow */
+.card-interactive {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--timing-base) ease;
+}
+
+.card-interactive:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+}
+
+/* Combinación: Button + Scale + Shadow */
+.btn-interactive {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--timing-fast) ease;
+  background: var(--accent-primary);
+  color: white;
+}
+
+.btn-interactive:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-interactive:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Combinación: Input + Focus + Lift */
+.input-interactive {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 1rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: all var(--timing-base) ease;
+}
+
+.input-interactive:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(109, 190, 69, 0.1);
+  transform: translateY(-1px);
+}
+
+/* ===================================
+   CLASES DE ESTADOS
+   =================================== */
+
+/* Estado activo */
+.state-active {
+  background: var(--accent-primary);
+  color: white;
+}
+
+/* Estado hover */
+.state-hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Estado focus */
+.state-focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(109, 190, 69, 0.1);
+}
+
+/* Estado disabled */
+.state-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Estado loading */
+.state-loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.state-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(2px);
+}
+
