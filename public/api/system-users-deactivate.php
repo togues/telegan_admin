@@ -51,14 +51,9 @@ try {
         respond(['success' => false, 'error' => 'ID inválido'], 400);
     }
 
-    $db = Database::getConnection();
-
     // Verificar que el usuario existe
     $checkSql = "SELECT id_admin, activo FROM admin_users WHERE id_admin = :id";
-    $checkStmt = $db->prepare($checkSql);
-    $checkStmt->bindValue(':id', $id, PDO::PARAM_INT);
-    $checkStmt->execute();
-    $user = $checkStmt->fetch(PDO::FETCH_ASSOC);
+    $user = Database::fetch($checkSql, ['id' => $id]);
     
     if (!$user) {
         respond(['success' => false, 'error' => 'Usuario no encontrado'], 404);
@@ -71,9 +66,7 @@ try {
 
     // Soft delete: solo cambiar activo a false
     $updateSql = "UPDATE admin_users SET activo = false, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id_admin = :id";
-    $updateStmt = $db->prepare($updateSql);
-    $updateStmt->bindValue(':id', $id, PDO::PARAM_INT);
-    $updateStmt->execute();
+    Database::update($updateSql, ['id' => $id]);
 
     respond([
         'success' => true,

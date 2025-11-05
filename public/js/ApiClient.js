@@ -172,14 +172,26 @@ class ApiClient {
     async handleResponse(response) {
         const contentType = response.headers.get('content-type');
         
-        if (!contentType || !contentType.includes('application/json')) {
-            throw new Error('Respuesta no válida del servidor');
+        // Leer el texto primero para ver si es JSON válido
+        const text = await response.text();
+        
+        // Si no hay contenido, lanzar error
+        if (!text || text.trim() === '') {
+            throw new Error(`Error del servidor (${response.status}): Respuesta vacía`);
+        }
+        
+        // Intentar parsear como JSON
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            // Si no es JSON válido, mostrar el texto del error
+            console.error('Respuesta no JSON:', text);
+            throw new Error(`Error del servidor (${response.status}): ${text.substring(0, 200)}`);
         }
 
-        const data = await response.json();
-
         if (!response.ok) {
-            throw new Error(data.message || 'Error en la petición');
+            throw new Error(data.error || data.message || 'Error en la petición');
         }
 
         return data;

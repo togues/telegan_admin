@@ -430,12 +430,6 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                                         </div>
                                     </div>
                                 </a>
-                                <div class="alert-card warning" id="usuariosInactivos">
-                                    <div class="alert-content">
-                                        <span class="alert-value">-</span>
-                                        <span class="alert-label">Inactivos 30+ días</span>
-                                    </div>
-                                </div>
                                 <a href="modules/alerts/users-never-logged-in.php" class="alert-card-link">
                                     <div class="alert-card info" id="usuariosNuncaLogin">
                                         <div class="alert-content">
@@ -449,6 +443,22 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                                         <div class="alert-content">
                                             <span class="alert-value">-</span>
                                             <span class="alert-label">Sin demografía</span>
+                                        </div>
+                                    </div>
+                                </a>
+                                <a href="modules/alerts/users-duplicates.php" class="alert-card-link">
+                                    <div class="alert-card critical" id="usuariosDuplicados">
+                                        <div class="alert-content">
+                                            <span class="alert-value">-</span>
+                                            <span class="alert-label">Duplicados/Sospechosos</span>
+                                        </div>
+                                    </div>
+                                </a>
+                                <a href="modules/alerts/users-inactive.php" class="alert-card-link">
+                                    <div class="alert-card warning" id="usuariosInactivos30">
+                                        <div class="alert-content">
+                                            <span class="alert-value">-</span>
+                                            <span class="alert-label">Inactivos >30 días</span>
                                         </div>
                                     </div>
                                 </a>

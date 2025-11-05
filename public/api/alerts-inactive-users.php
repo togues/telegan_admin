@@ -1,6 +1,7 @@
 <?php
 /**
- * API: Listado de usuarios con búsqueda, filtros y paginación
+ * API: Usuarios inactivos >30 días (listos para borrar)
+ * Usuarios que desde que se crearon no han tenido actividad mayor en 30 días
  */
 
 require_once '../../src/Config/Database.php';
@@ -23,12 +24,10 @@ function respond($payload, $status = 200) {
 }
 
 try {
-    // Solo permitir GET
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         respond(['success' => false, 'error' => 'Método no permitido'], 405);
     }
     
-    // Validar token de autenticación (ApiAuth normaliza el path automáticamente)
     $validation = ApiAuth::validateRequest();
     
     if (!$validation['valid']) {
@@ -39,7 +38,7 @@ try {
     }
 
     $q = isset($_GET['q']) ? trim($_GET['q']) : '';
-    $activo = isset($_GET['activo']) ? trim($_GET['activo']) : ''; // '', '1', '0'
+    $activo = isset($_GET['activo']) ? trim($_GET['activo']) : '';
     $codigo = isset($_GET['codigo']) ? trim($_GET['codigo']) : '';
     $fechaDesde = isset($_GET['fecha_desde']) ? trim($_GET['fecha_desde']) : '';
     $fechaHasta = isset($_GET['fecha_hasta']) ? trim($_GET['fecha_hasta']) : '';
@@ -52,7 +51,6 @@ try {
     $sortBy = isset($_GET['sort_by']) ? trim($_GET['sort_by']) : 'fecha_registro';
     $sortOrder = isset($_GET['sort_order']) ? strtoupper(trim($_GET['sort_order'])) : 'DESC';
     
-    // Validar columna de ordenamiento (whitelist)
     $allowedSortColumns = [
         'nombre_completo', 'email', 'telefono', 'fecha_registro', 
         'ultima_sesion', 'codigo_telegan', 'activo'
@@ -61,15 +59,19 @@ try {
         $sortBy = 'fecha_registro';
     }
     
-    // Validar dirección de ordenamiento
     if ($sortOrder !== 'ASC' && $sortOrder !== 'DESC') {
         $sortOrder = 'DESC';
     }
 
-    $where = [];
+    // Usuarios inactivos: sin actividad en los últimos 30 días desde su creación
+    // O que nunca han iniciado sesión y fueron creados hace más de 30 días
+    $where = [
+        "(u.ultima_sesion IS NULL OR u.ultima_sesion < NOW() - INTERVAL '30 days')",
+        "(u.fecha_registro < NOW() - INTERVAL '30 days')"
+    ];
     $params = [];
 
-    // Búsqueda general (nombre, email, teléfono)
+    // Búsqueda general
     if ($q !== '') {
         $where[] = '(u.nombre_completo ILIKE :q OR u.email ILIKE :q OR u.telefono ILIKE :q)';
         $params['q'] = "%$q%";
@@ -83,7 +85,6 @@ try {
 
     // Filtro por fecha de registro (rango)
     if ($fechaDesde !== '') {
-        // Validar formato de fecha (YYYY-MM-DD)
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
             $where[] = 'DATE(u.fecha_registro) >= :fecha_desde';
             $params['fecha_desde'] = $fechaDesde;
@@ -91,7 +92,6 @@ try {
     }
     
     if ($fechaHasta !== '') {
-        // Validar formato de fecha (YYYY-MM-DD)
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
             $where[] = 'DATE(u.fecha_registro) <= :fecha_hasta';
             $params['fecha_hasta'] = $fechaHasta;
@@ -104,7 +104,7 @@ try {
         $where[] = 'u.activo = FALSE';
     }
 
-    $whereSql = count($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
+    $whereSql = 'WHERE ' . implode(' AND ', $where);
 
     // Total
     $countSql = "SELECT COUNT(*) AS total FROM usuario u $whereSql";
@@ -114,9 +114,18 @@ try {
     // Datos
     $sql = "
         SELECT 
-            u.id_usuario, u.nombre_completo, u.email, u.telefono,
-            u.ubicacion_general, u.activo, u.email_verificado, u.telefono_verificado,
-            u.fecha_registro, u.ultima_sesion, u.codigo_telegan
+            u.id_usuario, 
+            u.nombre_completo, 
+            u.email, 
+            u.telefono,
+            u.ubicacion_general, 
+            u.activo, 
+            u.email_verificado, 
+            u.telefono_verificado,
+            u.fecha_registro, 
+            u.ultima_sesion, 
+            u.codigo_telegan,
+            EXTRACT(EPOCH FROM (NOW() - COALESCE(u.ultima_sesion, u.fecha_registro))) / 86400 as dias_inactivo
         FROM usuario u
         $whereSql
         ORDER BY u.$sortBy $sortOrder
@@ -144,7 +153,8 @@ try {
             'telefono_verificado' => (bool)$r['telefono_verificado'],
             'fecha_registro' => $r['fecha_registro'],
             'ultima_sesion' => $r['ultima_sesion'],
-            'codigo_telegan' => $r['codigo_telegan']
+            'codigo_telegan' => $r['codigo_telegan'],
+            'dias_inactivo' => (int)round($r['dias_inactivo'] ?? 0)
         ];
     }, $rows ?? []);
 
@@ -159,9 +169,8 @@ try {
         ]
     ]);
 } catch (Exception $e) {
-    error_log('users-list.php error: ' . $e->getMessage());
+    error_log('alerts-inactive-users.php error: ' . $e->getMessage());
     respond(['success' => false, 'error' => 'Error interno del servidor'], 500);
 }
 ?>
-
 

@@ -104,6 +104,48 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             font-size: 0.9rem; 
             white-space: nowrap; 
         }
+        /* Headers más altos para texto de dos líneas */
+        th.header-two-lines {
+            height: 60px;
+            line-height: 1.3;
+            white-space: normal;
+            word-break: break-word;
+            vertical-align: middle;
+        }
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 24px;
+            transition: background-color 0.2s ease;
+        }
+        th.sortable:hover {
+            background: var(--bg-secondary);
+        }
+        th.sortable .sort-indicator {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex;
+            flex-direction: column;
+            gap: 2px;
+            opacity: 0.3;
+        }
+        th.sortable.sort-asc .sort-indicator,
+        th.sortable.sort-desc .sort-indicator {
+            opacity: 1;
+        }
+        th.sortable.sort-asc .sort-indicator .arrow-up {
+            color: var(--accent-primary);
+        }
+        th.sortable.sort-desc .sort-indicator .arrow-down {
+            color: var(--accent-primary);
+        }
+        th.sortable .sort-indicator svg {
+            width: 10px;
+            height: 10px;
+        }
         tbody tr:hover { 
             background: var(--bg-secondary); 
         }
@@ -327,16 +369,95 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             <table class="admin-users">
                 <thead class="sticky">
                     <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Email</th>
-                        <th>Teléfono</th>
-                        <th>Rol</th>
-                        <th>Estado</th>
-                        <th>Email Verificado</th>
-                        <th>Última Sesión</th>
-                        <th>Registro</th>
-                        <th>Acciones</th>
+                        <th style="width:80px;">Acciones</th>
+                        <th class="sortable" data-sort="nombre_completo">
+                            Nombre
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="email">
+                            Email
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable header-two-lines" data-sort="telefono">
+                            Teléfono
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="rol">
+                            Rol
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="activo">
+                            Estado
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable header-two-lines" data-sort="email_verificado">
+                            Email<br>Verificado
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable header-two-lines" data-sort="ultima_sesion">
+                            Última<br>Sesión
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="fecha_registro">
+                            Registro
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody id="tbody">

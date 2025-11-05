@@ -107,6 +107,40 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             font-size: 0.9rem; 
             white-space: nowrap; 
         }
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 24px;
+            transition: background-color 0.2s ease;
+        }
+        th.sortable:hover {
+            background: var(--bg-secondary);
+        }
+        th.sortable .sort-indicator {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex;
+            flex-direction: column;
+            gap: 2px;
+            opacity: 0.3;
+        }
+        th.sortable.sort-asc .sort-indicator,
+        th.sortable.sort-desc .sort-indicator {
+            opacity: 1;
+        }
+        th.sortable.sort-asc .sort-indicator .arrow-up {
+            color: var(--accent-primary);
+        }
+        th.sortable.sort-desc .sort-indicator .arrow-down {
+            color: var(--accent-primary);
+        }
+        th.sortable .sort-indicator svg {
+            width: 10px;
+            height: 10px;
+        }
         tbody tr:hover { 
             background: var(--bg-secondary); 
         }
@@ -124,8 +158,9 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         .pagination { display: flex; gap: 0.5rem; align-items: center; justify-content: flex-end; padding: 0.5rem; }
         .btn { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.4rem 0.75rem; height: 32px; border-radius: 8px; cursor: pointer; }
         .btn:disabled { opacity: .4; cursor: default; }
-        .btn-view-user { border: none; background: transparent; color: var(--text-secondary); padding: 0.25rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; width: 28px; height: 28px; }
+        .btn-view-user, .btn-edit-user { border: none; background: transparent; color: var(--text-secondary); padding: 0.25rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; width: 28px; height: 28px; }
         .btn-view-user:hover { background: var(--bg-secondary); color: var(--accent-primary); transform: scale(1.1); }
+        .btn-edit-user:hover { background: var(--accent-secondary); color: white; transform: scale(1.1); }
         .user-checkbox { cursor: pointer; }
         .user-checkbox:checked { accent-color: var(--accent-primary); }
         .btn-download { display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.4rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s ease; }
@@ -135,8 +170,28 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         #farm-modal-nested { z-index: 10001 !important; }
         #user-profile-modal { z-index: 10000; }
+        #user-edit-modal { z-index: 10002; }
         .farm-item { transition: all 0.2s ease; }
         .farm-item:hover { background: var(--bg-secondary); transform: translateX(4px); }
+        
+        /* Modal de edición */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center; }
+        .modal.show { display: flex; }
+        .modal-content { background: var(--bg-card); border-radius: 12px; padding: 1.5rem; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-xl); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .modal-title { font-size: 1.25rem; font-weight: 600; color: var(--text-primary); }
+        .modal-close { border: none; background: transparent; color: var(--text-secondary); cursor: pointer; padding: 0.25rem; border-radius: 6px; transition: all 0.2s ease; }
+        .modal-close:hover { background: var(--bg-secondary); color: var(--text-primary); }
+        .form-group { margin-bottom: 1rem; }
+        .form-label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500; color: var(--text-primary); }
+        .form-input, .form-select { width: 100%; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.9rem; }
+        .form-input:focus, .form-select:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(109, 190, 69, 0.1); }
+        .form-checkbox { display: flex; align-items: center; gap: 0.5rem; }
+        .form-checkbox input { width: auto; }
+        .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); }
+        .btn-modal-cancel { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; }
+        .btn-modal-save { border: none; background: var(--accent-primary); color: white; padding: 0.5rem 1.5rem; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .btn-modal-save:hover { background: var(--accent-secondary); }
         @media (max-width: 768px) {
             .toolbar > div:first-child { grid-template-columns: 1fr; gap: 0.5rem; }
             .toolbar > div:first-child input, .toolbar > div:first-child select { width: 100%; }
@@ -309,21 +364,152 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                     <tr>
                         <th style="width:40px;"></th>
                         <th style="width:40px;"></th>
-                        <th>Nombre</th>
-                        <th>Email</th>
-                        <th style="width:120px;">Teléfono</th>
-                        <th style="width:120px;">Estado</th>
-                        <th style="width:120px;">Registro</th>
-                        <th style="width:120px;">Última sesión</th>
-                        <th style="width:120px;">Código</th>
+                        <th style="width:40px;"></th>
+                        <th class="sortable" data-sort="nombre_completo">
+                            Nombre
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="email">
+                            Email
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="telefono" style="width:120px;">
+                            Teléfono
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="activo" style="width:120px;">
+                            Estado
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="fecha_registro" style="width:120px;">
+                            Registro
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="ultima_sesion" style="width:120px;">
+                            Última sesión
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="codigo_telegan" style="width:120px;">
+                            Código
+                            <span class="sort-indicator">
+                                <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                                <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody id="tbody">
-                    <tr><td colspan="9" style="text-align:center; color: var(--text-secondary); padding: 16px;">Cargando...</td></tr>
+                    <tr><td colspan="10" style="text-align:center; color: var(--text-secondary); padding: 16px;">Cargando...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
+
+    <!-- Modal Editar Usuario -->
+    <div id="user-edit-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Editar Usuario</h2>
+                <button class="modal-close" id="editModalClose">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <form id="formEditUser">
+                <input type="hidden" id="editUserId" />
+                <div class="form-group">
+                    <label class="form-label" for="editNombre">Nombre Completo *</label>
+                    <input type="text" id="editNombre" class="form-input" required maxlength="255" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="editEmail">Email *</label>
+                    <input type="email" id="editEmail" class="form-input" required maxlength="255" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="editTelefono">Teléfono</label>
+                    <input type="text" id="editTelefono" class="form-input" maxlength="20" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="editUbicacion">Ubicación General</label>
+                    <input type="text" id="editUbicacion" class="form-input" maxlength="255" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="editCodigo">Código Telegan</label>
+                    <input type="text" id="editCodigo" class="form-input" maxlength="50" />
+                </div>
+                <div class="form-group">
+                    <div class="form-checkbox">
+                        <input type="checkbox" id="editActivo" />
+                        <label class="form-label" for="editActivo" style="margin: 0;">Usuario Activo</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="form-checkbox">
+                        <input type="checkbox" id="editEmailVerificado" />
+                        <label class="form-label" for="editEmailVerificado" style="margin: 0;">Email Verificado</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="form-checkbox">
+                        <input type="checkbox" id="editTelefonoVerificado" />
+                        <label class="form-label" for="editTelefonoVerificado" style="margin: 0;">Teléfono Verificado</label>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-modal-cancel" id="editCancel">Cancelar</button>
+                    <button type="submit" class="btn-modal-save" id="editSave">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- User Profile Modal (reutilizado del dashboard) -->
     <div id="user-profile-modal" class="search-modal" style="display: none; z-index: 10000;">

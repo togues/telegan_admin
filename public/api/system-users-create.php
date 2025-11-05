@@ -86,15 +86,11 @@ try {
         respond(['success' => false, 'error' => 'Teléfono inválido'], 400);
     }
 
-    $db = Database::getConnection();
-
     // Verificar que el email no exista
     $checkSql = "SELECT id_admin FROM admin_users WHERE email = :email";
-    $checkStmt = $db->prepare($checkSql);
-    $checkStmt->bindValue(':email', trim($input['email']));
-    $checkStmt->execute();
+    $existing = Database::fetch($checkSql, ['email' => trim(strtolower($input['email']))]);
     
-    if ($checkStmt->fetch()) {
+    if ($existing) {
         respond(['success' => false, 'error' => 'El email ya está registrado'], 409);
     }
 
@@ -108,6 +104,18 @@ try {
     }
 
     // Insertar nuevo usuario
+    $insertParams = [
+        'nombre_completo' => trim($input['nombre_completo']),
+        'email' => trim(strtolower($input['email'])),
+        'password_hash' => $passwordHash,
+        'telefono' => !empty($input['telefono']) ? trim($input['telefono']) : null,
+        'rol' => $input['rol'],
+        'activo' => isset($input['activo']) ? (bool)$input['activo'] : false,
+        'email_verificado' => isset($input['email_verificado']) ? (bool)$input['email_verificado'] : false,
+        'telefono_verificado' => isset($input['telefono_verificado']) ? (bool)$input['telefono_verificado'] : false,
+        'created_by' => $createdBy
+    ];
+
     $insertSql = "
         INSERT INTO admin_users (
             nombre_completo,
@@ -137,19 +145,11 @@ try {
         RETURNING id_admin, nombre_completo, email, telefono, rol, activo, fecha_registro
     ";
 
-    $insertStmt = $db->prepare($insertSql);
-    $insertStmt->bindValue(':nombre_completo', trim($input['nombre_completo']));
-    $insertStmt->bindValue(':email', trim(strtolower($input['email'])));
-    $insertStmt->bindValue(':password_hash', $passwordHash);
-    $insertStmt->bindValue(':telefono', !empty($input['telefono']) ? trim($input['telefono']) : null);
-    $insertStmt->bindValue(':rol', $input['rol']);
-    $insertStmt->bindValue(':activo', isset($input['activo']) ? (bool)$input['activo'] : false, PDO::PARAM_BOOL);
-    $insertStmt->bindValue(':email_verificado', isset($input['email_verificado']) ? (bool)$input['email_verificado'] : false, PDO::PARAM_BOOL);
-    $insertStmt->bindValue(':telefono_verificado', isset($input['telefono_verificado']) ? (bool)$input['telefono_verificado'] : false, PDO::PARAM_BOOL);
-    $insertStmt->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
-    
-    $insertStmt->execute();
-    $newUser = $insertStmt->fetch(PDO::FETCH_ASSOC);
+    // Usar query directo para obtener el resultado
+    $pdo = Database::getInstance();
+    $stmt = $pdo->prepare($insertSql);
+    $stmt->execute($insertParams);
+    $newUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
     respond([
         'success' => true,

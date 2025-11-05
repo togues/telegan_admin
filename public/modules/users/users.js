@@ -11,7 +11,9 @@ const state = {
   page: 1,
   pageSize: 20,
   totalPages: 1,
-  selectedIds: new Set()
+  selectedIds: new Set(),
+  sortBy: 'fecha_registro',
+  sortOrder: 'DESC'
 };
 
 const els = {
@@ -38,6 +40,10 @@ function buildUrl(includePagination = true) {
   if (state.fechaDesde) params.set('fecha_desde', state.fechaDesde);
   if (state.fechaHasta) params.set('fecha_hasta', state.fechaHasta);
   if (state.activo !== '') params.set('activo', state.activo);
+  
+  // Parámetros de ordenamiento
+  params.set('sort_by', state.sortBy);
+  params.set('sort_order', state.sortOrder);
   
   if (includePagination) {
     params.set('page', String(state.page));
@@ -107,7 +113,7 @@ function fmtDateOnly(d) {
 
 function renderRows(rows) {
   if (!rows.length) {
-    els.tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: var(--text-secondary); padding: 16px;">Sin resultados</td></tr>`;
+    els.tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: var(--text-secondary); padding: 16px;">Sin resultados</td></tr>`;
     return;
   }
   const html = rows.map(r => {
@@ -135,6 +141,14 @@ function renderRows(rows) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
               <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </td>
+        <td style="text-align: center;">
+          <button class="btn-edit-user" data-user-id="${r.id_usuario}" data-user-data='${userDataAttr}' title="Editar usuario">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
           </button>
         </td>
@@ -167,6 +181,21 @@ function renderRows(rows) {
         console.error('Error parseando datos del usuario:', e);
       }
       viewUserProfile(userId, userData);
+    });
+  });
+  
+  // Agregar event listeners a los botones de editar
+  document.querySelectorAll('.btn-edit-user').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const userId = parseInt(this.getAttribute('data-user-id'));
+      const userDataStr = this.getAttribute('data-user-data');
+      let userData = null;
+      try {
+        userData = JSON.parse(decodeURIComponent(userDataStr));
+      } catch (e) {
+        console.error('Error parseando datos del usuario:', e);
+      }
+      editUser(userId, userData);
     });
   });
   
@@ -1063,6 +1092,132 @@ function cleanupNestedFarmMap() {
   }
 }
 
+// Funciones de edición de usuario
+function editUser(userId, userData) {
+  // Si tenemos datos del usuario, usarlos directamente
+  if (userData) {
+    openEditModal(userData);
+  } else {
+    // Si no, cargar desde la API
+    loadUserForEdit(userId);
+  }
+}
+
+async function loadUserForEdit(userId) {
+  try {
+    const api = new ApiClient();
+    const response = await api.get(`api/users-list.php?page=1&page_size=1&q=&id_usuario=${userId}`);
+    
+    if (!response.success || !response.data || response.data.length === 0) {
+      throw new Error(response.error || 'Usuario no encontrado');
+    }
+    
+    openEditModal(response.data[0]);
+  } catch (e) {
+    console.error('Error loading user for edit:', e);
+    alert('Error al cargar usuario: ' + e.message);
+  }
+}
+
+function openEditModal(user) {
+  document.getElementById('editUserId').value = user.id_usuario;
+  document.getElementById('editNombre').value = user.nombre_completo || '';
+  document.getElementById('editEmail').value = user.email || '';
+  document.getElementById('editTelefono').value = user.telefono || '';
+  document.getElementById('editUbicacion').value = user.ubicacion_general || '';
+  document.getElementById('editCodigo').value = user.codigo_telegan || '';
+  document.getElementById('editActivo').checked = user.activo === true;
+  document.getElementById('editEmailVerificado').checked = user.email_verificado === true;
+  document.getElementById('editTelefonoVerificado').checked = user.telefono_verificado === true;
+  
+  document.getElementById('user-edit-modal').classList.add('show');
+}
+
+function closeEditModal() {
+  document.getElementById('user-edit-modal').classList.remove('show');
+  document.getElementById('formEditUser').reset();
+}
+
+async function saveUserEdit(e) {
+  e.preventDefault();
+  
+  const userId = parseInt(document.getElementById('editUserId').value);
+  if (!userId) {
+    alert('ID de usuario inválido');
+    return;
+  }
+  
+  const formData = {
+    id_usuario: userId,
+    nombre_completo: document.getElementById('editNombre').value.trim(),
+    email: document.getElementById('editEmail').value.trim(),
+    telefono: document.getElementById('editTelefono').value.trim() || null,
+    ubicacion_general: document.getElementById('editUbicacion').value.trim() || null,
+    codigo_telegan: document.getElementById('editCodigo').value.trim() || null,
+    // Siempre enviar booleanos explícitos (nunca null/undefined) para campos NOT NULL
+    activo: document.getElementById('editActivo').checked === true,
+    email_verificado: document.getElementById('editEmailVerificado').checked === true,
+    telefono_verificado: document.getElementById('editTelefonoVerificado').checked === true
+  };
+  
+  // Validaciones básicas
+  if (!formData.nombre_completo || formData.nombre_completo.length > 255) {
+    alert('Nombre completo es requerido y debe tener máximo 255 caracteres');
+    return;
+  }
+  
+  if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    alert('Email inválido');
+    return;
+  }
+  
+  try {
+    const api = new ApiClient();
+    const response = await api.put('api/users-update.php', formData);
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Error al actualizar usuario');
+    }
+    
+    closeEditModal();
+    loadUsers();
+    
+    console.log('Usuario actualizado exitosamente');
+  } catch (e) {
+    console.error('Error saving user:', e);
+    alert('Error al actualizar usuario: ' + e.message);
+  }
+}
+
+// Event listeners para el modal de edición
+document.addEventListener('DOMContentLoaded', function() {
+  const editModal = document.getElementById('user-edit-modal');
+  const editModalClose = document.getElementById('editModalClose');
+  const editCancel = document.getElementById('editCancel');
+  const formEditUser = document.getElementById('formEditUser');
+  
+  if (editModalClose) {
+    editModalClose.addEventListener('click', closeEditModal);
+  }
+  
+  if (editCancel) {
+    editCancel.addEventListener('click', closeEditModal);
+  }
+  
+  if (formEditUser) {
+    formEditUser.addEventListener('submit', saveUserEdit);
+  }
+  
+  // Cerrar modal al hacer click fuera
+  if (editModal) {
+    editModal.addEventListener('click', (e) => {
+      if (e.target === editModal) {
+        closeEditModal();
+      }
+    });
+  }
+});
+
 // Cerrar modales con Escape
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
@@ -1073,12 +1228,70 @@ document.addEventListener('keydown', (e) => {
       return;
     }
     
+    // Cerrar modal de edición
+    const editModal = document.getElementById('user-edit-modal');
+    if (editModal && editModal.classList.contains('show')) {
+      closeEditModal();
+      return;
+    }
+    
     // Luego cerrar modal de usuario
     const userModal = document.getElementById('user-profile-modal');
     if (userModal && userModal.classList.contains('show')) {
       closeUserProfileModal();
     }
   }
+});
+
+// Función para manejar el ordenamiento
+function handleSort(column) {
+  if (state.sortBy === column) {
+    // Si ya está ordenando por esta columna, cambiar la dirección
+    state.sortOrder = state.sortOrder === 'ASC' ? 'DESC' : 'ASC';
+  } else {
+    // Si es una nueva columna, ordenar ASC por defecto
+    state.sortBy = column;
+    state.sortOrder = 'ASC';
+  }
+  
+  // Resetear a página 1
+  state.page = 1;
+  
+  // Actualizar indicadores visuales
+  updateSortIndicators();
+  
+  // Recargar datos
+  loadUsers();
+}
+
+// Función para actualizar indicadores visuales de ordenamiento
+function updateSortIndicators() {
+  // Remover todas las clases de ordenamiento
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+  });
+  
+  // Agregar clase al header activo
+  const activeHeader = document.querySelector(`th.sortable[data-sort="${state.sortBy}"]`);
+  if (activeHeader) {
+    activeHeader.classList.add(state.sortOrder === 'ASC' ? 'sort-asc' : 'sort-desc');
+  }
+}
+
+// Inicializar event listeners para ordenamiento
+document.addEventListener('DOMContentLoaded', function() {
+  // Agregar listeners a los headers clickeables
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', function() {
+      const column = this.getAttribute('data-sort');
+      if (column) {
+        handleSort(column);
+      }
+    });
+  });
+  
+  // Actualizar indicadores iniciales
+  updateSortIndicators();
 });
 
 // Init

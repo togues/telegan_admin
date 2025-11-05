@@ -44,8 +44,6 @@ try {
         respond(['success' => false, 'error' => 'ID inválido'], 400);
     }
 
-    $db = Database::getConnection();
-    
     $sql = "
         SELECT 
             au.*,
@@ -55,11 +53,7 @@ try {
         WHERE au.id_admin = :id
     ";
 
-    $stmt = $db->prepare($sql);
-    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-    $stmt->execute();
-    
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $row = Database::fetch($sql, ['id' => $id]);
 
     if (!$row) {
         respond(['success' => false, 'error' => 'Usuario no encontrado'], 404);

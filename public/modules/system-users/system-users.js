@@ -9,7 +9,9 @@ const state = {
   page: 1,
   pageSize: 20,
   totalPages: 1,
-  editingId: null
+  editingId: null,
+  sortBy: 'fecha_registro',
+  sortOrder: 'DESC'
 };
 
 const els = {
@@ -56,6 +58,10 @@ function buildUrl(includePagination = true) {
   if (state.activo !== '') params.set('activo', state.activo);
   if (state.rol) params.set('rol', state.rol);
   
+  // Parámetros de ordenamiento
+  params.set('sort_by', state.sortBy);
+  params.set('sort_order', state.sortOrder);
+  
   if (includePagination) {
     params.set('page', String(state.page));
     params.set('page_size', String(state.pageSize));
@@ -87,7 +93,7 @@ async function loadAdmins() {
     els.next.disabled = state.page >= state.totalPages;
   } catch (e) {
     console.error('Error loading admins:', e);
-    els.tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: var(--error-color); padding: 16px;">Error al cargar administradores: ${e.message || 'Error desconocido'}</td></tr>`;
+    els.tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: var(--error-color); padding: 16px;">Error al cargar administradores: ${e.message || 'Error desconocido'}</td></tr>`;
   }
 }
 
@@ -145,7 +151,7 @@ function getRoleLabel(rol) {
 
 function renderRows(rows) {
   if (!rows.length) {
-    els.tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: var(--text-secondary); padding: 16px;">Sin resultados</td></tr>`;
+    els.tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: var(--text-secondary); padding: 16px;">Sin resultados</td></tr>`;
     return;
   }
   const html = rows.map(r => {
@@ -155,15 +161,6 @@ function renderRows(rows) {
     
     return `
       <tr>
-        <td>${r.id_admin}</td>
-        <td>${escapeHtml(r.nombre_completo)}</td>
-        <td>${escapeHtml(r.email || '')}</td>
-        <td>${escapeHtml(r.telefono || '-')}</td>
-        <td><span class="role-badge ${roleClass}">${roleLabel}</span></td>
-        <td><span class="status-dot ${dot}"></span>${r.activo ? 'Activo' : 'Inactivo'}</td>
-        <td>${r.email_verificado ? '✓' : '✗'}</td>
-        <td>${fmtDate(r.ultima_sesion)}</td>
-        <td>${fmtDateOnly(r.fecha_registro)}</td>
         <td style="display: flex; gap: 0.25rem;">
           <button class="btn-edit" data-id="${r.id_admin}" title="Editar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -178,6 +175,14 @@ function renderRows(rows) {
             </svg>
           </button>
         </td>
+        <td>${escapeHtml(r.nombre_completo)}</td>
+        <td>${escapeHtml(r.email || '')}</td>
+        <td>${escapeHtml(r.telefono || '-')}</td>
+        <td><span class="role-badge ${roleClass}">${roleLabel}</span></td>
+        <td><span class="status-dot ${dot}"></span>${r.activo ? 'Activo' : 'Inactivo'}</td>
+        <td>${r.email_verificado ? '✓' : '✗'}</td>
+        <td>${fmtDate(r.ultima_sesion)}</td>
+        <td>${fmtDateOnly(r.fecha_registro)}</td>
       </tr>`;
   }).join('');
   els.tbody.innerHTML = html;
@@ -562,6 +567,57 @@ if (els.modalConfirm) {
     }
   });
 }
+
+// Función para manejar el ordenamiento
+function handleSort(column) {
+  if (state.sortBy === column) {
+    // Si ya está ordenando por esta columna, cambiar la dirección
+    state.sortOrder = state.sortOrder === 'ASC' ? 'DESC' : 'ASC';
+  } else {
+    // Si es una nueva columna, ordenar ASC por defecto
+    state.sortBy = column;
+    state.sortOrder = 'ASC';
+  }
+  
+  // Resetear a página 1
+  state.page = 1;
+  
+  // Actualizar indicadores visuales
+  updateSortIndicators();
+  
+  // Recargar datos
+  loadAdmins();
+}
+
+// Función para actualizar indicadores visuales de ordenamiento
+function updateSortIndicators() {
+  // Remover todas las clases de ordenamiento
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+  });
+  
+  // Agregar clase al header activo
+  const activeHeader = document.querySelector(`th.sortable[data-sort="${state.sortBy}"]`);
+  if (activeHeader) {
+    activeHeader.classList.add(state.sortOrder === 'ASC' ? 'sort-asc' : 'sort-desc');
+  }
+}
+
+// Inicializar event listeners para ordenamiento
+document.addEventListener('DOMContentLoaded', function() {
+  // Agregar listeners a los headers clickeables
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', function() {
+      const column = this.getAttribute('data-sort');
+      if (column) {
+        handleSort(column);
+      }
+    });
+  });
+  
+  // Actualizar indicadores iniciales
+  updateSortIndicators();
+});
 
 // Cargar datos iniciales
 loadAdmins();
