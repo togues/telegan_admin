@@ -1,0 +1,843 @@
+-- =====================================================================
+-- MODELO DE DATOS: MONITOREO TERRITORIAL TELEGAN
+-- Validación y Complemento del Diseño Propuesto
+-- =====================================================================
+
+-- =====================================================================
+-- ANÁLISIS DEL DISEÑO ACTUAL
+-- =====================================================================
+
+/*
+✅ FORTALEZAS DEL DISEÑO ACTUAL:
+1. Separación clara entre geometrías y mediciones
+2. Sistema de proveedores múltiples (Sentinel, Copernicus, etc.)
+3. Catálogo de índices flexible
+4. Umbrales por región y temporada
+5. Sistema de alertas desacoplado
+6. Uso de UUID para escalabilidad
+7. JSONB para metadata extensible
+8. Checksum para evitar duplicados
+9. Timestamps para auditoría
+
+⚠️ ÁREAS DE MEJORA IDENTIFICADAS:
+1. Relación con tabla FINCA no está clara
+2. Falta diferenciar FINCA vs POTRERO vs POM (Puntos de Monitoreo)
+3. Falta gestión de usuarios activos/cuentas premium
+4. Falta tabla de notificaciones enviadas
+5. Falta auditoría de procesamiento ETL
+6. Falta manejo de biomasa estimada
+7. Falta vínculo con sistema de usuarios
+*/
+
+-- =====================================================================
+-- PARTE 1: TABLAS BASE (TU DISEÑO MEJORADO)
+-- =====================================================================
+
+-- --------------------------------------------------------------------
+-- 1.1 TABLA PRINCIPAL: finca_geometria (POM - Puntos de Monitoreo)
+-- --------------------------------------------------------------------
+CREATE TABLE finca_geometria (
+  id_geometria UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_finca UUID NOT NULL, -- FK a tabla finca principal
+  tipo TEXT NOT NULL CHECK (tipo IN ('FINCA', 'POTRERO', 'POM', 'OTRO')),
+  nombre TEXT NOT NULL,
+  
+  -- Geometría dual (WKT temporal + PostGIS definitivo)
+  geom_wkt TEXT,
+  geom_postgis GEOMETRY(Geometry, 4326), -- Soporta POINT, POLYGON, MULTIPOLYGON
+  
+  area_ha NUMERIC(12,2), -- NULL si es POINT
+  perimetro_km NUMERIC(10,2), -- Útil para análisis
+  centroide GEOMETRY(Point, 4326), -- Calculado automáticamente
+  
+  -- Control de monitoreo
+  monitoreo_activo BOOLEAN DEFAULT TRUE, -- Solo POM activos se procesan en ETL
+  prioridad INT DEFAULT 1, -- 1=baja, 5=crítica (para ETL)
+  
+  -- Metadata extendida
+  metadata JSONB DEFAULT '{}'::jsonb,
+  /*
+    Ejemplo metadata:
+    {
+      "id_usuario_propietario": "uuid",
+      "cuenta_tipo": "premium|free",
+      "frecuencia_monitoreo_horas": 24,
+      "tags": ["sequía_riesgo", "producción_lechera"],
+      "ultimo_procesamiento": "2025-01-15T10:30:00Z"
+    }
+  */
+  
+  -- Auditoría
+  fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  fecha_modificacion TIMESTAMPTZ,
+  fecha_ultimo_monitoreo TIMESTAMPTZ,
+  
+  -- Usuario que creó/modificó
+  creado_por UUID, -- FK a tabla usuario
+  modificado_por UUID,
+  
+  CONSTRAINT fk_finca_geometria_finca 
+    FOREIGN KEY (id_finca) 
+    REFERENCES finca(id_finca) 
+    ON DELETE CASCADE
+);
+
+-- Índices espaciales y de búsqueda
+CREATE INDEX idx_finca_geom_postgis ON finca_geometria USING GIST(geom_postgis);
+CREATE INDEX idx_finca_geom_centroide ON finca_geometria USING GIST(centroide);
+CREATE INDEX idx_finca_geom_tipo ON finca_geometria(tipo);
+CREATE INDEX idx_finca_geom_monitoreo_activo ON finca_geometria(monitoreo_activo) WHERE monitoreo_activo = TRUE;
+CREATE INDEX idx_finca_geom_finca ON finca_geometria(id_finca);
+CREATE INDEX idx_finca_geom_metadata_gin ON finca_geometria USING GIN(metadata);
+
+-- Trigger: Calcular centroide y área automáticamente
+CREATE OR REPLACE FUNCTION calcular_propiedades_geometria()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Calcular centroide si hay geometría PostGIS
+  IF NEW.geom_postgis IS NOT NULL THEN
+    NEW.centroide := ST_Centroid(NEW.geom_postgis);
+    
+    -- Calcular área solo si es polígono
+    IF ST_GeometryType(NEW.geom_postgis) IN ('ST_Polygon', 'ST_MultiPolygon') THEN
+      NEW.area_ha := ST_Area(NEW.geom_postgis::geography) / 10000;
+      NEW.perimetro_km := ST_Perimeter(NEW.geom_postgis::geography) / 1000;
+    END IF;
+  END IF;
+  
+  NEW.fecha_modificacion := NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_calcular_propiedades_geometria
+  BEFORE INSERT OR UPDATE OF geom_postgis ON finca_geometria
+  FOR EACH ROW
+  EXECUTE FUNCTION calcular_propiedades_geometria();
+
+COMMENT ON TABLE finca_geometria IS 'Geometrías monitoreables: FINCA completa, POTRERO individual o POM (Punto de Monitoreo específico)';
+COMMENT ON COLUMN finca_geometria.tipo IS 'FINCA=polígono completo | POTRERO=subdivisión | POM=punto de interés específico';
+COMMENT ON COLUMN finca_geometria.monitoreo_activo IS 'Solo geometrías activas son procesadas por ETL (control de costos)';
+
+-- --------------------------------------------------------------------
+-- 1.2 TABLA: proveedor (Fuentes de datos satelitales)
+-- --------------------------------------------------------------------
+CREATE TABLE proveedor (
+  id_proveedor SERIAL PRIMARY KEY,
+  codigo TEXT UNIQUE NOT NULL, -- 'SENTINEL2', 'COPERNICUS', 'MODIS'
+  nombre TEXT NOT NULL,
+  descripcion TEXT,
+  url_api TEXT,
+  
+  -- Control de acceso
+  requiere_autenticacion BOOLEAN DEFAULT TRUE,
+  api_key_encriptada TEXT,
+  
+  -- Configuración de extracción
+  frecuencia_horas INT DEFAULT 24,
+  ventana_temporal_dias INT DEFAULT 7, -- Cuántos días atrás puede buscar datos
+  max_nubosidad_pct NUMERIC(5,2) DEFAULT 20, -- Filtro de calidad
+  
+  -- Metadatos y contacto
+  contacto JSONB DEFAULT '{}'::jsonb,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  
+  -- Control
+  activo BOOLEAN DEFAULT TRUE,
+  fecha_ultima_consulta TIMESTAMPTZ,
+  
+  fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO proveedor (codigo, nombre, descripcion, frecuencia_horas) VALUES
+  ('SENTINEL2', 'Sentinel-2 (ESA)', 'Copernicus Sentinel-2 MSI - 10m resolución', 120),
+  ('COPERNICUS', 'Copernicus Data Space', 'Copernicus Climate Data Store', 24),
+  ('GEE', 'Google Earth Engine', 'Google Earth Engine API', 168),
+  ('MODIS', 'MODIS Terra/Aqua', 'NASA MODIS - 250m resolución', 24);
+
+COMMENT ON TABLE proveedor IS 'Catálogo de proveedores de datos satelitales y APIs';
+
+-- --------------------------------------------------------------------
+-- 1.3 TABLA: indice_satelital (Catálogo de índices)
+-- --------------------------------------------------------------------
+CREATE TABLE indice_satelital (
+  codigo TEXT PRIMARY KEY, -- 'NDVI', 'NDMI', 'SAVI', 'EVI', 'PRECIPITATION'
+  nombre TEXT NOT NULL,
+  categoria TEXT, -- 'VEGETACION', 'HUMEDAD', 'CLIMA', 'BIOMASA'
+  descripcion TEXT,
+  formula TEXT, -- Fórmula matemática o referencia
+  unidad TEXT, -- 'adimensional', 'mm', 'kg/ha'
+  
+  -- Rango de valores esperados
+  valor_min NUMERIC(10,4),
+  valor_max NUMERIC(10,4),
+  
+  -- Interpretación
+  interpretacion_bueno TEXT, -- "NDVI > 0.6 indica vegetación saludable"
+  interpretacion_malo TEXT,
+  
+  -- Display
+  color_escala JSONB DEFAULT '[]'::jsonb, -- Array de colores para visualización
+  /*
+    Ejemplo:
+    [
+      {"valor": 0, "color": "#d73027"},
+      {"valor": 0.3, "color": "#fee08b"},
+      {"valor": 0.6, "color": "#1a9850"}
+    ]
+  */
+  
+  activo BOOLEAN DEFAULT TRUE,
+  fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO indice_satelital (codigo, nombre, categoria, formula, unidad, valor_min, valor_max) VALUES
+  ('NDVI', 'Normalized Difference Vegetation Index', 'VEGETACION', '(NIR - RED) / (NIR + RED)', 'adimensional', -1, 1),
+  ('NDMI', 'Normalized Difference Moisture Index', 'HUMEDAD', '(NIR - SWIR) / (NIR + SWIR)', 'adimensional', -1, 1),
+  ('SAVI', 'Soil Adjusted Vegetation Index', 'VEGETACION', '((NIR - RED) / (NIR + RED + L)) * (1 + L)', 'adimensional', -1, 1),
+  ('EVI', 'Enhanced Vegetation Index', 'VEGETACION', '2.5 * ((NIR - RED) / (NIR + 6*RED - 7.5*BLUE + 1))', 'adimensional', -1, 1),
+  ('PRECIPITATION', 'Precipitación Acumulada', 'CLIMA', 'N/A', 'mm', 0, 1000),
+  ('TEMPERATURE', 'Temperatura Superficial', 'CLIMA', 'N/A', '°C', -50, 60),
+  ('BIOMASA', 'Biomasa Forrajera Estimada', 'BIOMASA', 'f(NDVI, SAVI, región)', 'kg MS/ha', 0, 10000);
+
+COMMENT ON TABLE indice_satelital IS 'Catálogo de índices e indicadores satelitales monitoreables';
+
+-- --------------------------------------------------------------------
+-- 1.4 TABLA: medicion_satelital (Valores observados)
+-- --------------------------------------------------------------------
+CREATE TABLE medicion_satelital (
+  id_medicion UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_geometria UUID NOT NULL,
+  codigo_indice TEXT NOT NULL,
+  id_proveedor INT NOT NULL,
+  
+  -- Temporal
+  fecha_observacion TIMESTAMPTZ NOT NULL, -- Fecha de captura del satélite
+  fecha_ingreso TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- Cuándo se procesó
+  
+  -- Valor y calidad
+  valor NUMERIC(10,4) NOT NULL, -- Valor del índice
+  calidad NUMERIC(5,2), -- Score de calidad (0-100)
+  nubes_pct NUMERIC(5,2), -- % de nubosidad en la escena
+  pixeles_validos INT, -- Cantidad de píxeles usados en el cálculo
+  
+  -- Metadatos de origen
+  source_metadata JSONB DEFAULT '{}'::jsonb,
+  /*
+    Ejemplo:
+    {
+      "scene_id": "S2A_MSIL2A_20250115T153621",
+      "processing_level": "L2A",
+      "sun_azimuth": 145.2,
+      "view_angle": 8.5,
+      "algoritmo_version": "v2.3"
+    }
+  */
+  
+  -- Control de duplicados
+  checksum TEXT UNIQUE, -- MD5(id_geometria + codigo_indice + fecha_observacion + valor)
+  
+  -- Procesamiento
+  procesado_por TEXT, -- 'ETL_v1.2', 'MANUAL', 'API_SYNC'
+  tiempo_procesamiento_ms INT,
+  
+  CONSTRAINT fk_medicion_geometria 
+    FOREIGN KEY (id_geometria) 
+    REFERENCES finca_geometria(id_geometria) 
+    ON DELETE CASCADE,
+  
+  CONSTRAINT fk_medicion_indice 
+    FOREIGN KEY (codigo_indice) 
+    REFERENCES indice_satelital(codigo),
+  
+  CONSTRAINT fk_medicion_proveedor 
+    FOREIGN KEY (id_proveedor) 
+    REFERENCES proveedor(id_proveedor)
+);
+
+-- Índices críticos para consultas temporales
+CREATE INDEX idx_medicion_geom_fecha 
+  ON medicion_satelital (id_geometria, fecha_observacion DESC);
+
+CREATE INDEX idx_medicion_indice_fecha 
+  ON medicion_satelital (codigo_indice, fecha_observacion DESC);
+
+CREATE INDEX idx_medicion_proveedor 
+  ON medicion_satelital (id_proveedor);
+
+CREATE INDEX idx_medicion_calidad 
+  ON medicion_satelital (calidad) WHERE calidad >= 70;
+
+CREATE INDEX idx_medicion_fecha_ingreso 
+  ON medicion_satelital (fecha_ingreso);
+
+COMMENT ON TABLE medicion_satelital IS 'Valores observados de índices satelitales por geometría y fecha';
+COMMENT ON COLUMN medicion_satelital.checksum IS 'Evita duplicados: MD5 de geometría+índice+fecha+valor';
+
+-- --------------------------------------------------------------------
+-- 1.5 TABLA: region_umbral (Regiones con umbrales específicos)
+-- --------------------------------------------------------------------
+CREATE TABLE region_umbral (
+  id_region UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  codigo TEXT UNIQUE NOT NULL, -- 'HN_OLANCHO', 'GT_COBAN', 'MX_CHIAPAS'
+  nombre TEXT NOT NULL,
+  pais_codigo_iso CHAR(2), -- 'HN', 'GT', 'MX', 'CR'
+  tipo TEXT, -- 'PAIS', 'DEPARTAMENTO', 'MUNICIPIO', 'ZONA_CLIMATICA'
+  
+  -- Geometría de la región
+  geom GEOMETRY(MultiPolygon, 4326),
+  
+  -- Metadata
+  metadata JSONB DEFAULT '{}'::jsonb,
+  /*
+    {
+      "clima": "tropical_humedo",
+      "altitud_promedio_msnm": 450,
+      "precipitacion_anual_mm": 1800
+    }
+  */
+  
+  activo BOOLEAN DEFAULT TRUE,
+  fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_region_umbral_geom ON region_umbral USING GIST(geom);
+CREATE INDEX idx_region_umbral_pais ON region_umbral(pais_codigo_iso);
+
+-- Datos iniciales de regiones
+INSERT INTO region_umbral (codigo, nombre, pais_codigo_iso, tipo) VALUES
+  ('HN_OLANCHO', 'Olancho', 'HN', 'DEPARTAMENTO'),
+  ('GT_COBAN', 'Cobán, Alta Verapaz', 'GT', 'MUNICIPIO'),
+  ('MX_CHIAPAS', 'Chiapas', 'MX', 'ESTADO'),
+  ('CR_GENERAL', 'Costa Rica General', 'CR', 'PAIS');
+
+COMMENT ON TABLE region_umbral IS 'Regiones geográficas con umbrales específicos de índices';
+
+-- --------------------------------------------------------------------
+-- 1.6 TABLA: umbral_indice (Umbrales por región y temporada)
+-- --------------------------------------------------------------------
+CREATE TABLE umbral_indice (
+  id_umbral UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_region UUID,
+  codigo_indice TEXT NOT NULL,
+  
+  -- Temporalidad (NULL = aplica todo el año)
+  temporada TEXT, -- 'SEQUIA', 'LLUVIAS', 'VERANO', 'INVIERNO'
+  fecha_inicio DATE, -- Inicio de temporada (mm-dd)
+  fecha_fin DATE, -- Fin de temporada (mm-dd)
+  
+  -- Umbrales
+  valor_min NUMERIC(10,4), -- NULL = sin límite inferior
+  valor_max NUMERIC(10,4), -- NULL = sin límite superior
+  
+  -- Nivel de alerta
+  nivel_alerta TEXT NOT NULL CHECK (nivel_alerta IN ('INFO', 'BAJO', 'MODERADO', 'ALTO', 'CRITICO')),
+  tipo_alerta TEXT, -- 'SEQUIA', 'INUNDACION', 'NORMAL', 'OPTIMO'
+  
+  -- Descripciones y recomendaciones
+  descripcion TEXT,
+  recomendacion_accion TEXT, -- Texto para el ganadero
+  
+  -- Metadata
+  metadata JSONB DEFAULT '{}'::jsonb,
+  fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  
+  -- Usuario que creó (especialista)
+  creado_por UUID,
+  
+  CONSTRAINT fk_umbral_region 
+    FOREIGN KEY (id_region) 
+    REFERENCES region_umbral(id_region),
+  
+  CONSTRAINT fk_umbral_indice 
+    FOREIGN KEY (codigo_indice) 
+    REFERENCES indice_satelital(codigo)
+);
+
+CREATE INDEX idx_umbral_region_indice ON umbral_indice(id_region, codigo_indice);
+CREATE INDEX idx_umbral_temporada ON umbral_indice(temporada);
+CREATE INDEX idx_umbral_nivel ON umbral_indice(nivel_alerta);
+
+-- Ejemplos de umbrales por región
+INSERT INTO umbral_indice (id_region, codigo_indice, temporada, valor_min, valor_max, nivel_alerta, tipo_alerta, descripcion, recomendacion_accion) VALUES
+  -- Olancho, Honduras - NDVI Sequía
+  ((SELECT id_region FROM region_umbral WHERE codigo='HN_OLANCHO'), 'NDVI', 'SEQUIA', NULL, 0.3, 'ALTO', 'SEQUIA', 
+   'NDVI por debajo de 0.3 indica estrés severo de vegetación', 
+   'Reduce carga animal, verifica agua, considera suplementación'),
+  
+  -- Cobán - NDMI Inundación
+  ((SELECT id_region FROM region_umbral WHERE codigo='GT_COBAN'), 'NDMI', 'LLUVIAS', 0.6, NULL, 'MODERADO', 'INUNDACION',
+   'Alta humedad en suelo puede indicar riesgo de inundación',
+   'Mueve animales a zonas altas, monitorea drenajes');
+
+COMMENT ON TABLE umbral_indice IS 'Umbrales de índices por región y temporada para generación de alertas';
+
+-- --------------------------------------------------------------------
+-- 1.7 TABLA: alerta_indice (Alertas generadas)
+-- --------------------------------------------------------------------
+CREATE TABLE alerta_indice (
+  id_alerta UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_medicion UUID NOT NULL,
+  id_umbral UUID NOT NULL,
+  id_geometria UUID NOT NULL, -- Denormalizado para consultas rápidas
+  
+  -- Estado de la alerta
+  estado TEXT NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'NOTIFICADA', 'VISTA', 'DESCARTADA', 'RESUELTA')),
+  nivel TEXT NOT NULL, -- Copiado de umbral para histórico
+  tipo TEXT, -- 'SEQUIA', 'INUNDACION', etc.
+  
+  -- Mensaje
+  titulo TEXT NOT NULL,
+  mensaje TEXT NOT NULL,
+  recomendaciones TEXT,
+  
+  -- Metadata
+  metadata JSONB DEFAULT '{}'::jsonb,
+  /*
+    {
+      "valor_medido": 0.25,
+      "umbral_configurado": 0.3,
+      "diferencia": -0.05,
+      "potreros_afectados": ["uuid1", "uuid2"],
+      "animales_en_riesgo": 50
+    }
+  */
+  
+  -- Control de notificaciones
+  fecha_alerta TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  fecha_notificacion TIMESTAMPTZ,
+  fecha_vista TIMESTAMPTZ,
+  fecha_expiracion TIMESTAMPTZ, -- Alertas antiguas se pueden limpiar
+  
+  -- Usuario afectado
+  id_usuario UUID, -- A quién va dirigida
+  
+  CONSTRAINT fk_alerta_medicion 
+    FOREIGN KEY (id_medicion) 
+    REFERENCES medicion_satelital(id_medicion) 
+    ON DELETE CASCADE,
+  
+  CONSTRAINT fk_alerta_umbral 
+    FOREIGN KEY (id_umbral) 
+    REFERENCES umbral_indice(id_umbral),
+    
+  CONSTRAINT fk_alerta_geometria
+    FOREIGN KEY (id_geometria)
+    REFERENCES finca_geometria(id_geometria)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX idx_alerta_estado ON alerta_indice(estado) WHERE estado IN ('PENDIENTE', 'NOTIFICADA');
+CREATE INDEX idx_alerta_geometria ON alerta_indice(id_geometria);
+CREATE INDEX idx_alerta_usuario ON alerta_indice(id_usuario);
+CREATE INDEX idx_alerta_fecha ON alerta_indice(fecha_alerta DESC);
+CREATE INDEX idx_alerta_nivel ON alerta_indice(nivel);
+
+COMMENT ON TABLE alerta_indice IS 'Alertas generadas cuando mediciones superan umbrales configurados';
+
+-- =====================================================================
+-- PARTE 2: TABLAS COMPLEMENTARIAS (LO QUE FALTABA)
+-- =====================================================================
+
+-- --------------------------------------------------------------------
+-- 2.1 TABLA: cuenta_monitoreo (Control de cuentas activas/premium)
+-- --------------------------------------------------------------------
+CREATE TABLE cuenta_monitoreo (
+  id_cuenta UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_usuario UUID NOT NULL UNIQUE, -- FK a tabla usuario
+  
+  -- Tipo de cuenta
+  tipo TEXT NOT NULL DEFAULT 'FREE' CHECK (tipo IN ('FREE', 'PREMIUM', 'ENTERPRISE')),
+  
+  -- Límites por tipo de cuenta
+  max_pom_activos INT DEFAULT 5, -- Cuántos POM puede monitorear
+  max_indices INT DEFAULT 3, -- Cuántos índices diferentes
+  frecuencia_monitoreo_horas INT DEFAULT 168, -- Cada cuánto se procesa (1 semana para FREE)
+  
+  -- Estado
+  activo BOOLEAN DEFAULT TRUE,
+  fecha_activacion TIMESTAMPTZ,
+  fecha_vencimiento TIMESTAMPTZ, -- NULL = sin vencimiento
+  
+  -- Uso actual
+  pom_activos_count INT DEFAULT 0,
+  ultima_consulta_etl TIMESTAMPTZ,
+  
+  -- Metadata
+  metadata JSONB DEFAULT '{}'::jsonb,
+  fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_cuenta_usuario ON cuenta_monitoreo(id_usuario);
+CREATE INDEX idx_cuenta_tipo ON cuenta_monitoreo(tipo);
+CREATE INDEX idx_cuenta_activo ON cuenta_monitoreo(activo) WHERE activo = TRUE;
+
+COMMENT ON TABLE cuenta_monitoreo IS 'Control de tipo de cuenta y límites de monitoreo para gestión de costos ETL';
+
+-- --------------------------------------------------------------------
+-- 2.2 TABLA: notificacion_enviada (Trazabilidad de notificaciones)
+-- --------------------------------------------------------------------
+CREATE TABLE notificacion_enviada (
+  id_notificacion UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_alerta UUID NOT NULL,
+  id_usuario UUID NOT NULL,
+  
+  -- Canal de envío
+  canal TEXT NOT NULL CHECK (canal IN ('PUSH', 'SMS', 'EMAIL', 'IN_APP')),
+  
+  -- Estado de envío
+  estado TEXT NOT NULL DEFAULT 'PENDING' CHECK (estado IN ('PENDING', 'SENT', 'DELIVERED', 'FAILED', 'BOUNCED')),
+  
+  -- Detalles
+  destinatario TEXT, -- Email o teléfono
+  mensaje_enviado TEXT,
+  
+  -- Tracking
+  fecha_envio TIMESTAMPTZ,
+  fecha_entrega TIMESTAMPTZ,
+  fecha_lectura TIMESTAMPTZ,
+  
+  -- Errores
+  error_mensaje TEXT,
+  intentos INT DEFAULT 0,
+  
+  -- Metadata del proveedor
+  proveedor_notificacion TEXT, -- 'Firebase', 'Twilio', 'SendGrid'
+  id_externo TEXT, -- ID del proveedor
+  metadata JSONB DEFAULT '{}'::jsonb,
+  
+  fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  
+  CONSTRAINT fk_notif_alerta
+    FOREIGN KEY (id_alerta)
+    REFERENCES alerta_indice(id_alerta)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX idx_notif_alerta ON notificacion_enviada(id_alerta);
+CREATE INDEX idx_notif_usuario ON notificacion_enviada(id_usuario);
+CREATE INDEX idx_notif_estado ON notificacion_enviada(estado);
+CREATE INDEX idx_notif_fecha ON notificacion_enviada(fecha_creacion DESC);
+
+COMMENT ON TABLE notificacion_enviada IS 'Trazabilidad completa de notificaciones enviadas a usuarios';
+
+-- --------------------------------------------------------------------
+-- 2.3 TABLA: etl_procesamiento (Auditoría de procesamiento ETL)
+-- --------------------------------------------------------------------
+CREATE TABLE etl_procesamiento (
+  id_procesamiento UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Job ETL
+  job_name TEXT NOT NULL,
+  id_proveedor INT,
+  
+  -- Scope del procesamiento
+  tipo_geometria TEXT, -- 'FINCA', 'POTRERO', 'POM', 'TODOS'
+  geometrias_procesadas INT DEFAULT 0,
+  indices_procesados INT DEFAULT 0,
+  
+  -- Temporal
+  fecha_inicio TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  fecha_fin TIMESTAMPTZ,
+  duracion_segundos INT,
+  
+  -- Resultados
+  estado TEXT NOT NULL DEFAULT 'RUNNING' CHECK (estado IN ('RUNNING', 'SUCCESS', 'PARTIAL', 'FAILED')),
+  mediciones_nuevas INT DEFAULT 0,
+  mediciones_actualizadas INT DEFAULT 0,
+  alertas_generadas INT DEFAULT 0,
+  
+  -- Errores
+  errores_count INT DEFAULT 0,
+  errores_detalle JSONB DEFAULT '[]'::jsonb,
+  
+  -- Costos (opcional)
+  costo_api_usd NUMERIC(10,4),
+  costo_computo_usd NUMERIC(10,4),
+  
+  -- Metadata
+  metadata JSONB DEFAULT '{}'::jsonb,
+  /*
+    {
+      "poms_procesados": ["uuid1", "uuid2"],
+      "imagenes_descargadas": 5,
+      "pixeles_procesados": 1250000,
+      "memoria_mb": 512
+    }
+  */
+  
+  CONSTRAINT fk_etl_proveedor
+    FOREIGN KEY (id_proveedor)
+    REFERENCES proveedor(id_proveedor)
+);
+
+CREATE INDEX idx_etl_fecha ON etl_procesamiento(fecha_inicio DESC);
+CREATE INDEX idx_etl_estado ON etl_procesamiento(estado);
+CREATE INDEX idx_etl_proveedor ON etl_procesamiento(id_proveedor);
+
+COMMENT ON TABLE etl_procesamiento IS 'Auditoría y trazabilidad de ejecuciones del ETL de datos satelitales';
+
+-- --------------------------------------------------------------------
+-- 2.4 TABLA: biomasa_estimada (Resultados de modelos de biomasa)
+-- --------------------------------------------------------------------
+CREATE TABLE biomasa_estimada (
+  id_biomasa UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_geometria UUID NOT NULL,
+  
+  -- Modelo usado
+  modelo_nombre TEXT NOT NULL, -- 'FAUBA_v1', 'REGIONAL_GT', 'REGIONAL_MX'
+  modelo_version TEXT,
+  
+  -- Fecha de estimación
+  fecha_observacion TIMESTAMPTZ NOT NULL,
+  fecha_calculo TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  
+  -- Valores estimados
+  biomasa_kg_ms_ha NUMERIC(10,2) NOT NULL, -- kg de Materia Seca por hectárea
+  biomasa_total_kg NUMERIC(12,2), -- Total en el polígono (area_ha * biomasa_kg_ms_ha)
+  
+  -- Confianza del modelo
+  confianza_pct NUMERIC(5,2), -- 0-100
+  r_cuadrado NUMERIC(5,4), -- R² del modelo
+  
+  -- Inputs usados (referencias a mediciones)
+  id_medicion_ndvi UUID,
+  id_medicion_savi UUID,
+  id_medicion_evi UUID,
+  
+  -- Metadata del cálculo
+  metadata JSONB DEFAULT '{}'::jsonb,
+  /*
+    {
+      "parametros_modelo": {...},
+      "ajuste_regional": "chiapas_tropical",
+      "tipo_pasto_predominante": "brachiaria"
+    }
+  */
+  
+  CONSTRAINT fk_biomasa_geometria
+    FOREIGN KEY (id_geometria)
+    REFERENCES finca_geometria(id_geometria)
+    ON DELETE CASCADE,
+    
+  CONSTRAINT fk_biomasa_ndvi
+    FOREIGN KEY (id_medicion_ndvi)
+    REFERENCES medicion_satelital(id_medicion)
+);
+
+CREATE INDEX idx_biomasa_geometria ON biomasa_estimada(id_geometria);
+CREATE INDEX idx_biomasa_fecha ON biomasa_estimada(fecha_observacion DESC);
+CREATE INDEX idx_biomasa_modelo ON biomasa_estimada(modelo_nombre);
+
+COMMENT ON TABLE biomasa_estimada IS 'Estimaciones de biomasa forrajera calculadas con modelos IICA/FAUBA';
+
+-- =====================================================================
+-- PARTE 3: FUNCIONES Y TRIGGERS ÚTILES
+-- =====================================================================
+
+-- --------------------------------------------------------------------
+-- 3.1 FUNCIÓN: Actualizar fecha_ultimo_monitoreo en geometría
+-- --------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION actualizar_ultimo_monitoreo()
+RETURNS TRIGGER AS $
+BEGIN
+  UPDATE finca_geometria
+  SET fecha_ultimo_monitoreo = NEW.fecha_ingreso
+  WHERE id_geometria = NEW.id_geometria;
+  
+  RETURN NEW;
+END;
+$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_actualizar_ultimo_monitoreo
+  AFTER INSERT ON medicion_satelital
+  FOR EACH ROW
+  EXECUTE FUNCTION actualizar_ultimo_monitoreo();
+
+-- --------------------------------------------------------------------
+-- 3.2 FUNCIÓN: Generar alertas automáticamente
+-- --------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION generar_alertas_automaticas()
+RETURNS TRIGGER AS $
+DECLARE
+  v_umbral RECORD;
+  v_geometria RECORD;
+BEGIN
+  -- Obtener información de la geometría
+  SELECT * INTO v_geometria 
+  FROM finca_geometria 
+  WHERE id_geometria = NEW.id_geometria;
+  
+  -- Buscar umbrales aplicables
+  FOR v_umbral IN 
+    SELECT u.*
+    FROM umbral_indice u
+    LEFT JOIN region_umbral r ON u.id_region = r.id_region
+    WHERE u.codigo_indice = NEW.codigo_indice
+      AND (r.geom IS NULL OR ST_Intersects(r.geom, v_geometria.centroide))
+      AND (u.temporada IS NULL OR u.temporada = obtener_temporada_actual())
+      AND (
+        (u.valor_min IS NOT NULL AND NEW.valor < u.valor_min) OR
+        (u.valor_max IS NOT NULL AND NEW.valor > u.valor_max)
+      )
+  LOOP
+    -- Insertar alerta
+    INSERT INTO alerta_indice (
+      id_medicion,
+      id_umbral,
+      id_geometria,
+      nivel,
+      tipo,
+      titulo,
+      mensaje,
+      recomendaciones,
+      fecha_expiracion,
+      metadata
+    ) VALUES (
+      NEW.id_medicion,
+      v_umbral.id_umbral,
+      NEW.id_geometria,
+      v_umbral.nivel_alerta,
+      v_umbral.tipo_alerta,
+      'Alerta de ' || v_umbral.tipo_alerta || ' en ' || v_geometria.nombre,
+      v_umbral.descripcion,
+      v_umbral.recomendacion_accion,
+      NOW() + INTERVAL '30 days',
+      jsonb_build_object(
+        'valor_medido', NEW.valor,
+        'umbral_min', v_umbral.valor_min,
+        'umbral_max', v_umbral.valor_max
+      )
+    );
+  END LOOP;
+  
+  RETURN NEW;
+END;
+$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_generar_alertas
+  AFTER INSERT ON medicion_satelital
+  FOR EACH ROW
+  WHEN (NEW.calidad >= 70) -- Solo generar alertas con datos de buena calidad
+  EXECUTE FUNCTION generar_alertas_automaticas();
+
+-- --------------------------------------------------------------------
+-- 3.3 FUNCIÓN AUXILIAR: Obtener temporada actual
+-- --------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION obtener_temporada_actual()
+RETURNS TEXT AS $
+DECLARE
+  mes INT := EXTRACT(MONTH FROM CURRENT_DATE);
+BEGIN
+  -- Lógica simple (ajustar según región)
+  CASE
+    WHEN mes BETWEEN 11 AND 4 THEN RETURN 'SEQUIA';
+    WHEN mes BETWEEN 5 AND 10 THEN RETURN 'LLUVIAS';
+    ELSE RETURN NULL;
+  END CASE;
+END;
+$ LANGUAGE plpgsql;
+
+-- =====================================================================
+-- PARTE 4: VISTAS ÚTILES PARA CONSULTAS
+-- =====================================================================
+
+-- Vista: Resumen de monitoreo por geometría
+CREATE OR REPLACE VIEW v_resumen_monitoreo_geometria AS
+SELECT 
+  g.id_geometria,
+  g.id_finca,
+  g.tipo,
+  g.nombre,
+  g.monitoreo_activo,
+  g.area_ha,
+  
+  -- Última medición de cada índice
+  MAX(CASE WHEN m.codigo_indice = 'NDVI' THEN m.valor END) as ultimo_ndvi,
+  MAX(CASE WHEN m.codigo_indice = 'NDVI' THEN m.fecha_observacion END) as fecha_ndvi,
+  MAX(CASE WHEN m.codigo_indice = 'NDMI' THEN m.valor END) as ultimo_ndmi,
+  MAX(CASE WHEN m.codigo_indice = 'NDMI' THEN m.fecha_observacion END) as fecha_ndmi,
+  
+  -- Biomasa estimada más reciente
+  (SELECT b.biomasa_kg_ms_ha 
+   FROM biomasa_estimada b 
+   WHERE b.id_geometria = g.id_geometria 
+   ORDER BY b.fecha_observacion DESC 
+   LIMIT 1) as biomasa_ultima,
+  
+  -- Alertas activas
+  COUNT(DISTINCT a.id_alerta) FILTER (WHERE a.estado IN ('PENDIENTE', 'NOTIFICADA')) as alertas_activas,
+  
+  g.fecha_ultimo_monitoreo
+
+FROM finca_geometria g
+LEFT JOIN medicion_satelital m ON g.id_geometria = m.id_geometria
+LEFT JOIN alerta_indice a ON g.id_geometria = a.id_geometria
+GROUP BY g.id_geometria;
+
+-- Vista: Alertas pendientes de notificar
+CREATE OR REPLACE VIEW v_alertas_pendientes AS
+SELECT 
+  a.id_alerta,
+  a.id_geometria,
+  g.nombre as geometria_nombre,
+  g.id_finca,
+  a.nivel,
+  a.tipo,
+  a.titulo,
+  a.mensaje,
+  a.recomendaciones,
+  a.fecha_alerta,
+  u.id_usuario,
+  u.nombre_completo as usuario_nombre,
+  u.email,
+  u.telefono
+FROM alerta_indice a
+INNER JOIN finca_geometria g ON a.id_geometria = g.id_geometria
+INNER JOIN finca f ON g.id_finca = f.id_finca
+INNER JOIN usuario u ON f.id_usuario_creador = u.id_usuario
+WHERE a.estado = 'PENDIENTE'
+  AND (a.fecha_expiracion IS NULL OR a.fecha_expiracion > NOW())
+ORDER BY a.fecha_alerta DESC;
+
+-- =====================================================================
+-- FIN DEL MODELO DE MONITOREO TERRITORIAL
+-- =====================================================================
+
+/*
+========================
+RESUMEN Y VALIDACIÓN
+========================
+
+✅ VALIDACIÓN DEL DISEÑO PROPUESTO:
+- Estructura base sólida y escalable
+- Separación clara de responsabilidades
+- Soporte para múltiples proveedores
+- Sistema de umbrales flexible
+
+✅ COMPLEMENTOS AGREGADOS:
+1. cuenta_monitoreo: Control de costos ETL por tipo de cuenta
+2. notificacion_enviada: Trazabilidad completa de notificaciones
+3. etl_procesamiento: Auditoría de ejecuciones ETL
+4. biomasa_estimada: Resultados de modelos IICA/FAUBA
+5. Triggers automáticos: Generación de alertas y actualización de fechas
+6. Vistas útiles: Consultas predefinidas para dashboard
+
+✅ MEJORAS AL DISEÑO ORIGINAL:
+- Agregado campo 'prioridad' en finca_geometria para control ETL
+- Campo 'monitoreo_activo' para filtrar qué procesar
+- Centroide calculado automáticamente
+- Checksum en mediciones para evitar duplicados
+- Metadata JSONB extensible en todas las tablas
+- Auditoría completa con created_by/modified_by
+- Sistema de notificaciones multicanal
+- Control de tipos de cuenta (FREE/PREMIUM)
+
+✅ LISTO PARA:
+- ETL procese solo POM activos de cuentas válidas
+- Generación automática de alertas por umbrales
+- Notificaciones multicanal (Push/SMS/Email)
+- Cálculo de biomasa con modelos IICA
+- Auditoría completa de procesamiento
+- Gestión de costos por frecuencia y tipo de cuenta
+*/

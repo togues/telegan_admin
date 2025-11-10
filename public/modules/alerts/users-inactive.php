@@ -77,6 +77,27 @@ $sessionToken = $_SESSION['session_token'] ?? null;
         .btn-download:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
         .btn-download svg { width: 16px; height: 16px; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .btn-deactivate {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.375rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-deactivate:hover:not(:disabled) {
+            background: var(--error-color);
+            border-color: var(--error-color);
+            color: white;
+        }
+        .btn-deactivate:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         th.sortable {
             cursor: pointer;
             user-select: none;
@@ -267,6 +288,7 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             <table class="users">
                 <thead class="sticky">
                     <tr>
+                        <th style="width:80px;">Acciones</th>
                         <th style="width:80px;">ID</th>
                         <th class="sortable" data-sort="nombre_completo">
                             Nombre
@@ -338,7 +360,7 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                     </tr>
                 </thead>
                 <tbody id="tbody">
-                    <tr><td colspan="8" style="text-align:center; color: var(--text-secondary); padding: 16px;">Cargando...</td></tr>
+                    <tr><td colspan="9" style="text-align:center; color: var(--text-secondary); padding: 16px;">Cargando...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -416,7 +438,7 @@ $sessionToken = $_SESSION['session_token'] ?? null;
 
         async function loadUsers() {
             try {
-                els.tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color: var(--text-secondary); padding: 16px;">Cargando...</td></tr>`;
+                els.tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: var(--text-secondary); padding: 16px;">Cargando...</td></tr>`;
                 const url = buildUrl();
                 
                 const api = new ApiClient();
@@ -434,7 +456,7 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                 els.next.disabled = state.page >= state.totalPages;
             } catch (e) {
                 console.error('Error loading users:', e);
-                els.tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color: var(--error-color); padding: 16px;">Error: ${e.message || 'Error desconocido'}</td></tr>`;
+                els.tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: var(--error-color); padding: 16px;">Error: ${e.message || 'Error desconocido'}</td></tr>`;
             }
         }
 
@@ -450,7 +472,7 @@ $sessionToken = $_SESSION['session_token'] ?? null;
 
         function renderRows(rows) {
             if (!rows.length) {
-                els.tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color: var(--text-secondary); padding: 16px;">Sin resultados</td></tr>`;
+                els.tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: var(--text-secondary); padding: 16px;">Sin resultados</td></tr>`;
                 return;
             }
             const html = rows.map(r => {
@@ -458,6 +480,14 @@ $sessionToken = $_SESSION['session_token'] ?? null;
                 const badgeColor = diasInactivo > 60 ? 'var(--error-color)' : diasInactivo > 30 ? 'var(--accent-warm)' : 'var(--text-secondary)';
                 return `
                 <tr>
+                    <td style="text-align: center;">
+                        <button class="btn-deactivate" data-id="${r.id_usuario}" data-nombre="${escapeHtml(r.nombre_completo)}" title="Desactivar cuenta" ${r.activo === false ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </td>
                     <td>${r.id_usuario}</td>
                     <td>${escapeHtml(r.nombre_completo)}</td>
                     <td>${escapeHtml(r.email || '')}</td>
@@ -470,6 +500,17 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             `;
             }).join('');
             els.tbody.innerHTML = html;
+            
+            // Agregar event listeners a botones de desactivar
+            document.querySelectorAll('.btn-deactivate').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = parseInt(this.dataset.id);
+                    const nombre = this.dataset.nombre;
+                    if (!this.disabled) {
+                        deactivateUser(id, nombre);
+                    }
+                });
+            });
         }
 
         // Event listeners para filtros
@@ -600,6 +641,30 @@ $sessionToken = $_SESSION['session_token'] ?? null;
             const activeHeader = document.querySelector(`th.sortable[data-sort="${state.sortBy}"]`);
             if (activeHeader) {
                 activeHeader.classList.add(state.sortOrder === 'ASC' ? 'sort-asc' : 'sort-desc');
+            }
+        }
+
+        async function deactivateUser(userId, userName) {
+            if (!confirm(`¿Estás seguro de desactivar la cuenta de "${userName}"?\n\nEsta acción desactivará el usuario y no podrá acceder al sistema.`)) {
+                return;
+            }
+            
+            try {
+                const api = new ApiClient();
+                const response = await api.put('api/users-update.php', {
+                    id_usuario: userId,
+                    activo: false
+                });
+                
+                if (!response.success) {
+                    throw new Error(response.error || 'Error al desactivar usuario');
+                }
+                
+                alert('Usuario desactivado exitosamente');
+                loadUsers();
+            } catch (e) {
+                console.error('Error deactivating user:', e);
+                alert('Error al desactivar usuario: ' + e.message);
             }
         }
 

@@ -130,20 +130,39 @@ try {
 
     // Siempre actualizar estos campos (son NOT NULL en la BD)
     // Usar valores del input si vienen, sino mantener los actuales
-    $updates[] = 'activo = :activo';
-    $params['activo'] = isset($input['activo']) ? (bool)$input['activo'] : $currentActivo;
+    // Función helper para convertir a boolean correctamente
+    $toBool = function($value) {
+        if (is_bool($value)) return $value;
+        if ($value === null || $value === '') return false;
+        if (is_string($value)) {
+            $value = strtolower(trim($value));
+            return in_array($value, ['true', '1', 'yes', 'on'], true);
+        }
+        if (is_numeric($value)) return (bool)$value;
+        return false;
+    };
     
-    $updates[] = 'email_verificado = :email_verificado';
-    $params['email_verificado'] = isset($input['email_verificado']) ? (bool)$input['email_verificado'] : $currentEmailVerificado;
+    // Determinar valores booleanos
+    $activoValue = isset($input['activo']) ? $toBool($input['activo']) : $currentActivo;
+    $emailVerificadoValue = isset($input['email_verificado']) ? $toBool($input['email_verificado']) : $currentEmailVerificado;
+    $telefonoVerificadoValue = isset($input['telefono_verificado']) ? $toBool($input['telefono_verificado']) : $currentTelefonoVerificado;
     
-    $updates[] = 'telefono_verificado = :telefono_verificado';
-    $params['telefono_verificado'] = isset($input['telefono_verificado']) ? (bool)$input['telefono_verificado'] : $currentTelefonoVerificado;
+    // Usar CAST en SQL para convertir correctamente a boolean
+    $updates[] = 'activo = CAST(:activo AS BOOLEAN)';
+    $params['activo'] = $activoValue ? 'true' : 'false';
+    
+    $updates[] = 'email_verificado = CAST(:email_verificado AS BOOLEAN)';
+    $params['email_verificado'] = $emailVerificadoValue ? 'true' : 'false';
+    
+    $updates[] = 'telefono_verificado = CAST(:telefono_verificado AS BOOLEAN)';
+    $params['telefono_verificado'] = $telefonoVerificadoValue ? 'true' : 'false';
 
     if (empty($updates)) {
         respond(['success' => false, 'error' => 'No hay campos para actualizar'], 400);
     }
 
-    // Agregar fecha_actualizacion si existe el campo
+    // Nota: fecha_actualizacion no existe en la tabla usuario, se omitió
+    
     $updateSql = "UPDATE usuario SET " . implode(', ', $updates) . " WHERE id_usuario = :id";
     
     Database::update($updateSql, $params);
