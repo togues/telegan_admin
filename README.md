@@ -60,16 +60,25 @@ TELEGAN_ADMIN/
 │   │   └── init-session.php # API de inicialización de sesión
 │   │
 │   └── modules/              # Módulos funcionales del sistema
+│       ├── _layout.php      # Layout común (header, sidebar, bottom-nav)
 │       ├── users/
-│       │   ├── index.php    # Gestión de usuarios (con sesión PHP)
+│       │   ├── index.php    # Gestión de usuarios (pendiente de migrar al layout común)
 │       │   └── users.js     # JavaScript del módulo de usuarios
-│       ├── farms/
-│       │   └── index.html   # Gestión de fincas
-│       ├── records/
-│       │   └── index.html   # Gestión de registros ganaderos
-│       ├── settings/
-│       │   └── index.html   # Configuración
-│       └── index.html       # Página de módulos
+│       ├── system-users/
+│       │   ├── index.php    # Gestión de administradores internos
+│       │   └── system-users.js
+│       ├── providers/
+│       │   ├── index.php    # Gestión de proveedores satelitales/climáticos
+│       │   └── providers.js
+│       ├── indices/
+│       │   ├── index.php    # Catálogo de índices satelitales
+│       │   └── indices.js
+│       ├── regions/
+│       │   ├── index.php    # Gestión de regiones con Leaflet + WKT
+│       │   └── regions.js
+│       └── thresholds/
+│           ├── index.php    # Umbrales por región/índice
+│           └── thresholds.js
 │
 └── src/                      # Código PHP del backend (clases)
     ├── Config/
@@ -161,22 +170,71 @@ public/modules/
 
 ### Módulos Actuales
 
-1. **`users/`** - Gestión de usuarios
-   - `index.php`: Página con sesión PHP (verifica autenticación)
-   - `users.js`: Lógica de listado, búsqueda, edición de usuarios
-   - Se comunica con `public/api/users-list.php`
+1. **`users/`** - Gestión de usuarios (en proceso de migración al layout común).
+2. **`system-users/`** - Administración de personal interno.
+3. **`providers/`** - CRUD completo para proveedores satelitales.
+4. **`indices/`** - Catálogo maestro de índices satelitales.
+5. **`regions/`** - Definición de regiones con geometrías WKT y Leaflet.
+6. **`thresholds/`** - Administración de umbrales por región e índice.
 
-2. **`farms/`** - Gestión de fincas
-   - `index.html`: Página HTML estática
-   - En desarrollo
+### Layout común para módulos (`public/modules/_layout.php`)
 
-3. **`records/`** - Registros ganaderos
-   - `index.html`: Página HTML estática
-   - En desarrollo
+Todos los módulos nuevos o migrados deben compartir la misma estructura visual. Para lograrlo:
 
-4. **`settings/`** - Configuración
-   - `index.html`: Página HTML estática
-   - En desarrollo
+1. Inicia la sesión y valida permisos como siempre (`session_start`, `Security::init`).
+2. Define las variables básicas antes de requerir el layout:
+   - `$layoutActive`: identifica qué ítem del menú queda resaltado (ej. `'providers'`).
+   - `$moduleTitle` y `$moduleSubtitle`: encabezado principal de la vista.
+3. Usa `ob_start()` para capturar fragmentos opcionales:
+   - `$moduleHead`: estilos extra, scripts globales o CDNs específicos del módulo.
+   - `$moduleContent`: HTML del cuerpo principal (toolbars, tablas, modales, etc.).
+   - `$moduleScripts`: scripts al final, normalmente `<script type="module" src="./mi-modulo.js"></script>`.
+4. `require_once '../_layout.php';` renderiza toda la página reutilizando header, sidebar, bottom-nav y el botón de “Cerrar sesión”.
+
+Detalles adicionales del layout:
+- Tema oscuro por defecto: si no existe preferencia guardada se fuerza `data-theme="dark"`.
+- Persistencia de sidebar colapsado: se lee/escribe en `localStorage` (`sidebarCollapsed`).
+- El layout ya incluye `theme-common.js`, por lo que los módulos solo deben inyectar el JS particular.
+- El botón de “Cerrar sesión” redirige a `auth/logout.php`.
+
+### Cómo crear un módulo nuevo rápido
+
+```php
+<?php
+session_start();
+require_once '../../../src/Config/Security.php';
+Security::init();
+
+if (!($_SESSION['admin_logged_in'] ?? false)) {
+    header('Location: ../../../auth/login.php');
+    exit;
+}
+
+$layoutActive = 'mi-modulo';
+$moduleTitle = 'Título del módulo';
+$moduleSubtitle = 'Resumen o descripción';
+
+ob_start();
+?>
+<style>
+/* Tus estilos específicos */
+</style>
+<?php $moduleHead = ob_get_clean();
+
+ob_start();
+?>
+<div class="mi-contenido">Hola Telegan</div>
+<?php $moduleContent = ob_get_clean();
+
+ob_start();
+?>
+<script type="module" src="./mi-modulo.js"></script>
+<?php $moduleScripts = ob_get_clean();
+
+require_once '../_layout.php';
+```
+
+Con este patrón garantizamos consistencia visual y reducimos código duplicado en cada módulo.
 
 ### Cómo Funcionan los Módulos
 

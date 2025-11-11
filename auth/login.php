@@ -9,9 +9,11 @@ session_start();
 // Incluir dependencias
 require_once 'config/Security.php';
 require_once 'config/Database.php';
+require_once '../src/Config/Security.php';
+require_once '../src/Services/WhatsAppNotifier.php';
 
 // Inicializar seguridad
-AuthSecurity::init();
+Security::init();
 
 // Si ya está logueado, redirigir al dashboard
 if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
@@ -79,10 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Crear sesión PHP
                         $_SESSION['admin_logged_in'] = true;
                         $_SESSION['admin_id'] = $user['id_admin'];
-                        $_SESSION['admin_name'] = $user['nombre_completo'];
+                        $_SESSION['admin_nombre'] = $user['nombre_completo'];
                         $_SESSION['admin_email'] = $user['email'];
                         $_SESSION['admin_role'] = $user['rol'];
-                        $_SESSION['session_token'] = $sessionToken;
+                        $_SESSION['session_token'] = bin2hex(random_bytes(16));
                         $_SESSION['session_timestamp'] = time(); // Timestamp para validar expiración
                         $_SESSION['session_valid'] = true; // Marcar sesión como válida
                         
@@ -92,6 +94,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'user_id' => $user['id_admin'],
                             'role' => $user['rol']
                         ], 'INFO');
+                        
+                        try {
+                            $notifier = new WhatsAppNotifier();
+                            $message = sprintf(
+                                "Inicio de sesión: %s (%s) a las %s",
+                                $user['nombre_completo'] ?? 'Usuario',
+                                $user['email'] ?? '',
+                                date('Y-m-d H:i:s')
+                            );
+                            $notifier->sendLoginAlert($message);
+                        } catch (Throwable $notifyError) {
+                            error_log('WhatsAppNotifier login error: ' . $notifyError->getMessage());
+                        }
                         
                         // Redirigir al dashboard
                         header('Location: ../public/dashboard.php');

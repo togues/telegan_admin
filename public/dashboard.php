@@ -27,6 +27,18 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 $userName = $_SESSION['admin_nombre'] ?? $_SESSION['admin_name'] ?? 'Usuario';
 $userEmail = $_SESSION['admin_email'] ?? '';
 $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
+
+$scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+if ($scriptDir === '' || $scriptDir === '/') {
+    $assetBase = '';
+} else {
+    $assetBase = $scriptDir;
+}
+
+$asset = static function (string $path) use ($assetBase): string {
+    $cleanPath = ltrim($path, '/');
+    return ($assetBase !== '' ? $assetBase . '/' : '') . $cleanPath;
+};
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -34,7 +46,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Telegan Admin</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="<?php echo $asset('css/styles.css'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -136,7 +148,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="modules/users/" class="menu-link">
+                    <a href="<?php echo $asset('modules/users/'); ?>" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                             <circle cx="12" cy="7" r="4"></circle>
@@ -145,7 +157,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="modules/system-users/" class="menu-link">
+                    <a href="<?php echo $asset('modules/system-users/'); ?>" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                             <circle cx="8.5" cy="7" r="4"></circle>
@@ -155,7 +167,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="modules/farms/" class="menu-link">
+                    <a href="<?php echo $asset('modules/farms/'); ?>" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                             <polyline points="3.27,6.96 12,12.01 20.73,6.96"></polyline>
@@ -165,7 +177,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="modules/records/" class="menu-link">
+                    <a href="<?php echo $asset('modules/records/'); ?>" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
                             <path d="M2 17l10 5 10-5"></path>
@@ -175,7 +187,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="modules/records/" class="menu-link">
+                    <a href="<?php echo $asset('modules/records/'); ?>" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                             <polyline points="14,2 14,8 20,8"></polyline>
@@ -422,7 +434,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                                 Usuarios
                             </h3>
                             <div class="alert-cards">
-                                <a href="modules/alerts/users-no-farms.php" class="alert-card-link">
+                                <a href="<?php echo $asset('modules/alerts/users-no-farms.php'); ?>" class="alert-card-link">
                                     <div class="alert-card critical" id="usuariosSinFinca">
                                         <div class="alert-content">
                                             <span class="alert-value">-</span>
@@ -430,7 +442,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                                         </div>
                                     </div>
                                 </a>
-                                <a href="modules/alerts/users-never-logged-in.php" class="alert-card-link">
+                                <a href="<?php echo $asset('modules/alerts/users-never-logged-in.php'); ?>" class="alert-card-link">
                                     <div class="alert-card info" id="usuariosNuncaLogin">
                                         <div class="alert-content">
                                             <span class="alert-value">-</span>
@@ -438,7 +450,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                                         </div>
                                     </div>
                                 </a>
-                                <a href="modules/alerts/users-no-demography.php" class="alert-card-link">
+                                <a href="<?php echo $asset('modules/alerts/users-no-demography.php'); ?>" class="alert-card-link">
                                     <div class="alert-card warning" id="usuariosSinDemo">
                                         <div class="alert-content">
                                             <span class="alert-value">-</span>
@@ -446,7 +458,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                                         </div>
                                     </div>
                                 </a>
-                                <a href="modules/alerts/users-duplicates.php" class="alert-card-link">
+                                <a href="<?php echo $asset('modules/alerts/users-duplicates.php'); ?>" class="alert-card-link">
                                     <div class="alert-card critical" id="usuariosDuplicados">
                                         <div class="alert-content">
                                             <span class="alert-value">-</span>
@@ -454,7 +466,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
                                         </div>
                                     </div>
                                 </a>
-                                <a href="modules/alerts/users-inactive.php" class="alert-card-link">
+                                <a href="<?php echo $asset('modules/alerts/users-inactive.php'); ?>" class="alert-card-link">
                                     <div class="alert-card warning" id="usuariosInactivos30">
                                         <div class="alert-content">
                                             <span class="alert-value">-</span>
@@ -554,20 +566,20 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
             </svg>
             <span class="nav-text">Dashboard</span>
         </a>
-        <a href="modules/users/" class="nav-item">
+        <a href="<?php echo $asset('modules/users/'); ?>" class="nav-item">
             <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                 <circle cx="12" cy="7" r="4"></circle>
             </svg>
             <span class="nav-text">Usuarios</span>
         </a>
-        <a href="modules/farms/" class="nav-item">
+        <a href="<?php echo $asset('modules/farms/'); ?>" class="nav-item">
             <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
             </svg>
             <span class="nav-text">Fincas</span>
         </a>
-        <a href="modules/records/" class="nav-item">
+        <a href="<?php echo $asset('modules/records/'); ?>" class="nav-item">
             <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
                 <path d="M2 17l10 5 10-5"></path>
@@ -575,7 +587,7 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
             </svg>
             <span class="nav-text">Potreros</span>
         </a>
-        <a href="modules/records/" class="nav-item">
+        <a href="<?php echo $asset('modules/records/'); ?>" class="nav-item">
             <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                 <polyline points="14,2 14,8 20,8"></polyline>
@@ -873,8 +885,8 @@ $userRole = $_SESSION['admin_rol'] ?? $_SESSION['admin_role'] ?? 'TECNICO';
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- Scripts (módulos ES6) -->
-    <script src="js/theme-common.js"></script>
-    <script type="module" src="js/ApiClient.js"></script>
-    <script type="module" src="js/dashboard.js"></script>
+    <script src="<?php echo $asset('js/theme-common.js'); ?>"></script>
+    <script type="module" src="<?php echo $asset('js/ApiClient.js'); ?>"></script>
+    <script type="module" src="<?php echo $asset('js/dashboard.js'); ?>"></script>
 </body>
 </html>

@@ -2,6 +2,45 @@
 -- MODELO DE DATOS: MONITOREO TERRITORIAL TELEGAN
 -- Validación y Complemento del Diseño Propuesto
 -- =====================================================================
+2. Identificación de la necesidad
+Para que la PWA cumpla su objetivo de proveer información confiable y oportuna, se requiere un componente técnico que gestione la obtención, procesamiento y organización de datos satelitales y geoespaciales provenientes de múltiples fuentes (Google Earth Engine, NASA, Copernicus, entre otras).
+Los datos satelitales no pueden consumirse directamente desde estas plataformas, ya que requieren transformaciones técnicas especializadas: delimitación por finca, cálculo de índices específicos, filtrado de cobertura nubosa, estandarización de formatos y conversión a unidades aplicables, entre otros procesos.
+3. Propuesta técnica
+Se propone incorporar un Motor de Datos Territoriales (también conocido técnicamente como ETL geoespacial: Extracción, Transformación y Carga de Datos Geoespaciales). Este componente funcionará como intermediario inteligente entre las fuentes de información satelital y la aplicación móvil.
+Funciones principales:
+•	Extraer datos satelitales y climáticos de diversas fuentes especializadas
+•	Procesarlos según los requerimientos específicos del proyecto (por finca, período temporal e indicador)
+•	Almacenarlos y distribuirlos de manera estructurada para que la PWA pueda acceder a ellos sin depender de conexión en tiempo real ni de consultas directas a servicios externos
+Metodología de Puntos de Monitoreo (POM) para el Sistema de Información Territorial
+Objetivo
+Establecer un sistema eficiente y estandarizado para el monitoreo satelital continuo de las fincas participantes del proyecto, mediante la identificación de puntos geográficos representativos que permitan consultar información agroclimática de manera automatizada.
+Proceso metodológico
+Fase 1: Levantamiento catastral
+Se realizará un barrido territorial completo del área de intervención del proyecto para:
+•	Identificar y delimitar todos los polígonos correspondientes a fincas en el área rural
+•	Registrar la división interna de cada finca en potreros o parcelas productivas
+•	Validar la información con los productores y técnicos de campo
+Fase 2: Generación de Puntos de Monitoreo (POM)
+Una vez delimitadas las fincas y sus subdivisiones, el sistema calculará automáticamente los centroides geométricos de:
+•	Cada finca completa
+•	Cada potrero o parcela dentro de la finca
+¿Qué es un centroide?
+Es el punto central geográfico de un polígono, equivalente al "centro de masa" de la figura. Este punto representa de manera simplificada toda el área del polígono.
+Fase 3: Consulta automatizada de datos satelitales
+Los centroides generados servirán como Puntos de Monitoreo (POM) permanentes. Estos puntos serán las coordenadas que el sistema utilizará para:
+•	Consultar periódicamente información satelital (índices de vegetación, humedad, temperatura, etc.)
+•	Solicitar datos a proveedores como Google Earth Engine, NASA, Copernicus u otros
+•	Mantener un historial temporal del comportamiento de cada área
+Ventajas de esta metodología
+Eficiencia técnica:
+•	Reduce significativamente el volumen de datos a procesar (se consulta un punto en lugar de todo el polígono)
+•	Disminuye costos computacionales y tiempos de respuesta
+Ejemplo práctico
+Finca "El Progreso" (100 hectáreas)
+•	1 POM para la finca completa (visión general del predio)
+•	5 POM adicionales para sus 5 potreros (monitoreo detallado por uso)
+•	Total: 6 puntos de consulta en lugar de procesar 100 hectáreas píxel por píxel
+Finalmente
 
 -- =====================================================================
 -- ANÁLISIS DEL DISEÑO ACTUAL
