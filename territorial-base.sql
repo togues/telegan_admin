@@ -177,3 +177,27 @@ ON CONFLICT DO NOTHING;
 -- FIN DEL SCRIPT
 -- =====================================================================
 
+   CREATE TABLE finca_geometria_captura (
+       id_captura SERIAL PRIMARY KEY,
+       id_finca INT NOT NULL REFERENCES finca(id_finca),
+       tipo_geometria VARCHAR(20) NOT NULL DEFAULT 'POLYGON', -- POLYGON / POINT
+       geometria_wkt TEXT NOT NULL,
+       metadata JSONB DEFAULT '{}'::jsonb,
+       capturado_por INT,             -- id_admin/brigadista si aplica
+       fuente VARCHAR(50) DEFAULT 'PWA',
+       estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE', -- PENDIENTE, VALIDADA, RECHAZADA
+       comentario TEXT,
+       fecha_captura TIMESTAMP NOT NULL DEFAULT NOW(),
+       fecha_procesado TIMESTAMP
+   );
+
+      CREATE TABLE finca_geometria_historial (
+       id_historial SERIAL PRIMARY KEY,
+       id_finca INT NOT NULL REFERENCES finca(id_finca),
+       geometria_wkt TEXT NOT NULL,
+       geometria_postgis GEOMETRY,
+       area_hectareas NUMERIC,
+       aprobado_por INT,
+       comentario TEXT,
+       fecha_aprobacion TIMESTAMP NOT NULL DEFAULT NOW()
+   );
