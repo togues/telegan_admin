@@ -24,8 +24,6 @@ ob_start();
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <script src="https://unpkg.com/leaflet-providers@1.13.0/leaflet-providers.js"></script>
 <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
-<script src="https://unpkg.com/terraformer@1.0.12/dist/terraformer.min.js"></script>
-<script src="https://unpkg.com/terraformer-wkt-parser@1.2.1/dist/terraformer-wkt-parser.min.js"></script>
 <script>
     window.userSession = {
         loggedIn: true,
@@ -446,9 +444,9 @@ ob_start();
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="geom_wkt">Geometría WKT<span class="label-hint" title="Polígono/multipolígono en formato WKT (SRID 4326)." aria-label="Ayuda campo geometría">?</span></label>
-                    <textarea id="geom_wkt" class="form-textarea" placeholder="MULTIPOLYGON(((...)))"></textarea>
-                    <button type="button" id="btnLoadWkt" class="btn-outline" style="align-self:flex-start;">Dibujar desde WKT</button>
+                    <label class="form-label" for="geom_wkt">Geometría (GeoJSON)<span class="label-hint" title="Polígono/multipolígono en formato GeoJSON (SRID 4326)." aria-label="Ayuda campo geometría">?</span></label>
+                    <textarea id="geom_wkt" class="form-textarea" placeholder='{"type":"Polygon","coordinates":[...]}'></textarea>
+                    <button type="button" id="btnLoadWkt" class="btn-outline" style="align-self:flex-start;">Dibujar desde GeoJSON</button>
                     <div id="regionMap"></div>
                     <small id="areaInfo" style="font-size:0.78rem;color:var(--text-secondary);"></small>
                 </div>

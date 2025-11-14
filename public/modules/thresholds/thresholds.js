@@ -430,7 +430,7 @@ async function startEdit(id) {
         dom.modalSubmit.textContent = 'Guardar cambios';
         dom.modalSubmit.disabled = true;
 
-        const response = await apiClient.get(`thresholds-detail.php?id=${encodeURIComponent(id)}`);
+        const response = await apiClient.get('thresholds-detail.php', { id });
         if (!response.success || !response.data) {
             throw new Error(response.error || 'No se encontraron datos del umbral');
         }

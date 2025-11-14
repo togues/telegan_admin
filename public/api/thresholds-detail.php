@@ -37,10 +37,15 @@ try {
         ], 401);
     }
 
-    $id = isset($_GET['id']) ? trim((string)$_GET['id']) : '';
-    if ($id === '' || !preg_match('/^[0-9a-fA-F-]{32,36}$/', $id)) {
+    $idRaw = isset($_GET['id']) ? trim((string)$_GET['id']) : '';
+    $isUuid = preg_match('/^[0-9a-fA-F-]{32,36}$/', $idRaw) === 1;
+    $isNumeric = ctype_digit($idRaw);
+
+    if ($idRaw === '' || (!$isUuid && !$isNumeric)) {
         respond(['success' => false, 'error' => 'ID inválido'], 422);
     }
+
+    $id = $isNumeric ? (int)$idRaw : $idRaw;
 
     $sql = "
         SELECT

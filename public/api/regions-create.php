@@ -24,6 +24,17 @@ function respond(array $payload, int $status = 200): void {
     exit();
 }
 
+function normalizeGeoJson($value): ?string {
+    if ($value === null || $value === '') {
+        return null;
+    }
+    if (is_array($value)) {
+        return json_encode($value, JSON_UNESCAPED_UNICODE);
+    }
+    $trimmed = trim((string)$value);
+    return $trimmed === '' ? null : $trimmed;
+}
+
 function sanitizeText(?string $value, int $maxLength = 255): ?string {
     if ($value === null) {
         return null;
@@ -79,10 +90,34 @@ try {
         $activo = true;
     }
 
-    // Geometría opcional (geojson WKT string)
+    // Geometría opcional (preferimos GeoJSON, mantenemos WKT como respaldo)
     $geomWkt = null;
     $geomArea = null;
-    if (!empty($payload['geom_wkt'])) {
+    $geomGeoJsonRaw = $payload['geom_geojson'] ?? null;
+    $geomGeoJson = normalizeGeoJson($geomGeoJsonRaw);
+    if ($geomGeoJson !== null) {
+        $conversion = Database::fetch("
+            WITH geom AS (
+                SELECT ST_SetSRID(ST_GeomFromGeoJSON(:geojson::json), 4326) AS g
+            )
+            SELECT
+                ST_AsText(g) AS geom_wkt,
+                ST_IsValid(g) AS valid,
+                ST_Area(g::geography) AS area_m2
+            FROM geom
+        ", ['geojson' => $geomGeoJson]);
+
+        if (!$conversion || !$conversion['valid']) {
+            respond(['success' => false, 'error' => 'La geometría GeoJSON no es válida'], 422);
+        }
+
+        if (($conversion['area_m2'] ?? 0) <= 0) {
+            respond(['success' => false, 'error' => 'La geometría debe tener un área mayor a cero'], 422);
+        }
+
+        $geomWkt = $conversion['geom_wkt'];
+        $geomArea = (float)$conversion['area_m2'];
+    } elseif (!empty($payload['geom_wkt'])) {
         $geomWkt = trim((string)$payload['geom_wkt']);
     }
 
@@ -137,6 +172,7 @@ try {
             pais_codigo_iso,
             tipo,
             ST_AsText(geom) AS geom_wkt,
+            CASE WHEN geom IS NOT NULL THEN ST_AsGeoJSON(geom, 6) END AS geom_geojson,
             metadata,
             activo,
             fecha_creacion,
@@ -165,6 +201,7 @@ try {
             'pais_codigo_iso' => $created['pais_codigo_iso'],
             'tipo'            => $created['tipo'],
             'geom_wkt'        => $created['geom_wkt'],
+            'geom_geojson'    => $created['geom_geojson'] ? json_decode($created['geom_geojson'], true) : null,
             'metadata'        => $created['metadata'] ? json_decode($created['metadata'], true) : null,
             'activo'          => (bool)$created['activo'],
             'fecha_creacion'  => $created['fecha_creacion'],

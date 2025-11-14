@@ -200,11 +200,24 @@ class ApiClient {
     /**
      * Realizar petición GET
      */
-    async get(endpoint, includeAuth = true) {
+    async get(endpoint, paramsOrIncludeAuth = true, includeAuth = true) {
         try {
             // Esperar a que la sesión esté inicializada antes de hacer la petición
             await this.waitForSession();
-            
+
+            let params = null;
+            let includeAuthFlag = true;
+
+            if (typeof paramsOrIncludeAuth === 'boolean' || paramsOrIncludeAuth === undefined) {
+                includeAuthFlag = paramsOrIncludeAuth === undefined ? true : paramsOrIncludeAuth;
+            } else if (paramsOrIncludeAuth && typeof paramsOrIncludeAuth === 'object') {
+                params = paramsOrIncludeAuth;
+                includeAuthFlag = typeof includeAuth === 'boolean' ? includeAuth : true;
+            }
+            if (typeof paramsOrIncludeAuth === 'boolean' && typeof includeAuth === 'boolean') {
+                includeAuthFlag = paramsOrIncludeAuth;
+            }
+
             // Si el endpoint ya incluye 'api/', solo usar el nombre del archivo
             // api/users-list.php -> users-list.php (baseURL ya tiene /api)
             let cleanEndpoint = endpoint;
@@ -213,14 +226,27 @@ class ApiClient {
             } else if (endpoint.startsWith('/api/')) {
                 cleanEndpoint = endpoint.substring(5); // Quitar '/api/'
             }
-            
+
+            if (params && Object.keys(params).length) {
+                const searchParams = new URLSearchParams();
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.append(key, value);
+                    }
+                });
+                if (searchParams.toString()) {
+                    cleanEndpoint += cleanEndpoint.includes('?') ? '&' : '?';
+                    cleanEndpoint += searchParams.toString();
+                }
+            }
+
             // Construir URL final
             const url = `${this.baseURL}/${cleanEndpoint}`;
                 
             console.log('GET URL:', url);
             const response = await fetch(url, {
                 method: 'GET',
-                headers: this.getHeaders(url, includeAuth)
+                headers: this.getHeaders(url, includeAuthFlag)
             });
 
             return await this.handleResponse(response);

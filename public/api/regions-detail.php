@@ -50,6 +50,7 @@ try {
             pais_codigo_iso,
             tipo,
             ST_AsText(geom) AS geom_wkt,
+            CASE WHEN geom IS NOT NULL THEN ST_AsGeoJSON(geom, 6) END AS geom_geojson,
             metadata,
             activo,
             fecha_creacion
@@ -72,6 +73,7 @@ try {
             'pais_codigo_iso' => $row['pais_codigo_iso'],
             'tipo'            => $row['tipo'],
             'geom_wkt'        => $row['geom_wkt'],
+            'geom_geojson'    => $row['geom_geojson'] ? json_decode($row['geom_geojson'], true) : null,
             'metadata'        => $row['metadata'] ? json_decode($row['metadata'], true) : null,
             'activo'          => (bool)$row['activo'],
             'fecha_creacion'  => $row['fecha_creacion'],

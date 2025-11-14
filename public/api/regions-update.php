@@ -24,6 +24,17 @@ function respond(array $payload, int $status = 200): void {
     exit();
 }
 
+function normalizeGeoJson($value): ?string {
+    if ($value === null || $value === '') {
+        return null;
+    }
+    if (is_array($value)) {
+        return json_encode($value, JSON_UNESCAPED_UNICODE);
+    }
+    $trimmed = trim((string)$value);
+    return $trimmed === '' ? null : $trimmed;
+}
+
 function sanitizeText(?string $value, int $maxLength = 255): ?string {
     if ($value === null) {
         return null;
@@ -61,7 +72,10 @@ try {
     $pdo = Database::getInstance();
     $pdo->beginTransaction();
 
-    $current = Database::fetch('SELECT *, ST_AsText(geom) AS geom_wkt FROM region_umbral WHERE codigo = :codigo', ['codigo' => $codigo]);
+    $current = Database::fetch(
+        'SELECT *, ST_AsText(geom) AS geom_wkt, CASE WHEN geom IS NOT NULL THEN ST_AsGeoJSON(geom, 6) END AS geom_geojson FROM region_umbral WHERE codigo = :codigo',
+        ['codigo' => $codigo]
+    );
     if (!$current) {
         $pdo->rollBack();
         respond(['success' => false, 'error' => 'Región no encontrada'], 404);
@@ -76,13 +90,42 @@ try {
     $pais = array_key_exists('pais_codigo_iso', $payload) ? sanitizeText($payload['pais_codigo_iso'], 2) : $current['pais_codigo_iso'];
     $tipo = array_key_exists('tipo', $payload) ? sanitizeText($payload['tipo'], 100) : $current['tipo'];
 
-    $geomProvided = array_key_exists('geom_wkt', $payload);
-    $geomWkt = $geomProvided ? trim((string)($payload['geom_wkt'] ?? '')) : $current['geom_wkt'];
-    if ($geomProvided && $geomWkt === '') {
+    $geomGeoJsonProvided = array_key_exists('geom_geojson', $payload);
+    $geomGeoJsonValue = $geomGeoJsonProvided ? normalizeGeoJson($payload['geom_geojson']) : null;
+    $geomWktProvided = array_key_exists('geom_wkt', $payload);
+    $geomWktInput = $geomWktProvided ? trim((string)($payload['geom_wkt'] ?? '')) : $current['geom_wkt'];
+
+    $geomProvided = $geomGeoJsonProvided || $geomWktProvided;
+    $geomWkt = $geomWktInput;
+    if ($geomGeoJsonProvided) {
+        if ($geomGeoJsonValue === null) {
+            $geomWkt = null;
+        } else {
+            $conversion = Database::fetch("
+                WITH geom AS (
+                    SELECT ST_SetSRID(ST_GeomFromGeoJSON(:geojson::json), 4326) AS g
+                )
+                SELECT
+                    ST_AsText(g) AS geom_wkt,
+                    ST_IsValid(g) AS valid,
+                    ST_Area(g::geography) AS area_m2
+                FROM geom
+            ", ['geojson' => $geomGeoJsonValue]);
+
+            if (!$conversion || !$conversion['valid']) {
+                $pdo->rollBack();
+                respond(['success' => false, 'error' => 'La geometría GeoJSON no es válida'], 422);
+            }
+            if (($conversion['area_m2'] ?? 0) <= 0) {
+                $pdo->rollBack();
+                respond(['success' => false, 'error' => 'La geometría debe tener un área mayor a cero'], 422);
+            }
+            $geomWkt = $conversion['geom_wkt'];
+        }
+    } elseif ($geomWktProvided && $geomWkt === '') {
         $geomWkt = null;
     }
 
-    $geomArea = null;
     if ($geomProvided && $geomWkt !== null) {
         $validCheck = Database::fetch(
             'SELECT ST_IsValid(ST_GeomFromText(:wkt, 4326)) AS valid, ST_Area(ST_GeomFromText(:wkt, 4326)::geography) AS area',
@@ -96,7 +139,6 @@ try {
             $pdo->rollBack();
             respond(['success' => false, 'error' => 'La geometría debe tener un área mayor a cero'], 422);
         }
-        $geomArea = (float)$validCheck['area'];
     }
 
     $metadata = $current['metadata'] ? json_decode($current['metadata'], true) : null;
@@ -140,6 +182,7 @@ try {
             pais_codigo_iso,
             tipo,
             ST_AsText(geom) AS geom_wkt,
+            CASE WHEN geom IS NOT NULL THEN ST_AsGeoJSON(geom, 6) END AS geom_geojson,
             metadata,
             activo,
             fecha_creacion,
@@ -169,6 +212,7 @@ try {
             'pais_codigo_iso' => $updated['pais_codigo_iso'],
             'tipo'            => $updated['tipo'],
             'geom_wkt'        => $updated['geom_wkt'],
+            'geom_geojson'    => $updated['geom_geojson'] ? json_decode($updated['geom_geojson'], true) : null,
             'metadata'        => $updated['metadata'] ? json_decode($updated['metadata'], true) : null,
             'activo'          => (bool)$updated['activo'],
             'fecha_creacion'  => $updated['fecha_creacion'],

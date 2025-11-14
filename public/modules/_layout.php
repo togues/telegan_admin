@@ -161,6 +161,16 @@ $bottomNav = $bottomNav ?? true;
                         <span class="menu-text">Regiones</span>
                     </a>
                 </li>
+                <li class="menu-item <?php echo $layoutActive === 'fincas-geom' ? 'active' : ''; ?>">
+                    <a href="../fincas-geom/" class="menu-link">
+                        <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            <path d="M8 10h8"></path>
+                            <path d="M12 6v8"></path>
+                        </svg>
+                        <span class="menu-text">Geom. Fincas</span>
+                    </a>
+                </li>
                 <li class="menu-item <?php echo $layoutActive === 'thresholds' ? 'active' : ''; ?>">
                     <a href="../thresholds/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -221,6 +231,14 @@ $bottomNav = $bottomNav ?? true;
                 <path d="M4 20h10v-4H4z"></path>
             </svg>
             <span>Regiones</span>
+        </a>
+        <a href="../fincas-geom/" class="nav-item <?php echo $layoutActive === 'fincas-geom' ? 'active' : ''; ?>">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <path d="M8 10h8"></path>
+                <path d="M12 6v8"></path>
+            </svg>
+            <span>Geom. Fincas</span>
         </a>
         <a href="../thresholds/" class="nav-item <?php echo $layoutActive === 'thresholds' ? 'active' : ''; ?>">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

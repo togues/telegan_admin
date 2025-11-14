@@ -12,8 +12,23 @@ const state = {
     active: '',
     loading: false,
     mode: 'create',
-    editingCode: null
+    editingCode: null,
+    geometry: null
 };
+
+function parseGeometryInput(value) {
+    if (!value && value !== 0) return null;
+    if (typeof value === 'object') {
+        return value;
+    }
+    const trimmed = String(value).trim();
+    if (!trimmed) return null;
+    try {
+        return JSON.parse(trimmed);
+    } catch (error) {
+        throw new Error(`GeoJSON inválido (${error.message})`);
+    }
+}
 
 const dom = {
     tableBody: document.getElementById('regionsTableBody'),
@@ -52,30 +67,9 @@ let mapInstance = null;
 let drawnLayer = null;
 let drawControl = null;
 
-function areLibsReady() {
-    return typeof turf !== 'undefined' && typeof Terraformer !== 'undefined' && typeof Terraformer.WKT !== 'undefined';
-}
-
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
-        document.head.appendChild(script);
-    });
-}
-
-async function init() {
+function init() {
     attachListeners();
-    const waitLibs = () => {
-        if (!areLibsReady()) {
-            setTimeout(waitLibs, 100);
-            return;
-        }
-        loadRegions();
-    };
-    waitLibs();
+    loadRegions();
 }
 
 function initMap() {
@@ -94,8 +88,11 @@ function initMap() {
         mapInstance.createPane('labels');
         mapInstance.getPane('labels').style.zIndex = 650;
         mapInstance.getPane('labels').style.pointerEvents = 'none';
-        const labels = L.tileLayer.provider('Esri.WorldReferenceOverlay', { pane: 'labels' });
-        labels.addTo(mapInstance);
+        try {
+            L.tileLayer.provider('Esri.WorldBoundariesAndPlaces', { pane: 'labels' }).addTo(mapInstance);
+        } catch (error) {
+            console.warn('No se pudo cargar el overlay de etiquetas Esri.WorldBoundariesAndPlaces', error);
+        }
 
         const drawOptions = {
             draw: {
@@ -127,18 +124,19 @@ function initMap() {
             drawOptions.edit.featureGroup.clearLayers();
             drawOptions.edit.featureGroup.addLayer(event.layer);
             drawnLayer = event.layer;
-            syncWktFromMap();
+            syncGeometryFromMap();
         });
 
         mapInstance.on(L.Draw.Event.EDITED, () => {
             drawnLayer = drawControl.options.edit.featureGroup.getLayers()[0];
-            syncWktFromMap();
+            syncGeometryFromMap();
         });
 
         mapInstance.on(L.Draw.Event.DELETED, () => {
             drawnLayer = null;
             dom.fields.geom_wkt.value = '';
             dom.areaInfo.textContent = '';
+            state.geometry = null;
         });
     }
 
@@ -149,16 +147,20 @@ function initMap() {
     }, 100);
 }
 
-function syncWktFromMap() {
-    if (!drawnLayer || !areLibsReady()) return;
+function syncGeometryFromMap() {
+    if (!drawnLayer) return;
     const geojson = drawnLayer.toGeoJSON();
-    const wkt = Terraformer.WKT.convert(geojson.geometry);
-    dom.fields.geom_wkt.value = wkt;
+    state.geometry = geojson.geometry;
+    try {
+        dom.fields.geom_wkt.value = JSON.stringify(geojson.geometry, null, 2);
+    } catch (_) {
+        dom.fields.geom_wkt.value = '';
+    }
     updateAreaInfo(geojson.geometry);
 }
 
 function updateAreaInfo(geometry) {
-    if (!geometry || !areLibsReady() || typeof turf === 'undefined') {
+    if (!geometry || typeof turf === 'undefined') {
         dom.areaInfo.textContent = '';
         return;
     }
@@ -171,14 +173,16 @@ function updateAreaInfo(geometry) {
     dom.areaInfo.textContent = `Área estimada: ${areaKm2.toFixed(2)} km²`;
 }
 
-function drawPolygonFromWkt(wkt) {
-    if (!drawControl || !areLibsReady()) return;
+function drawGeometryOnMap(geometryInput) {
+    if (!drawControl) return;
     const featureGroup = drawControl.options.edit.featureGroup;
     featureGroup.clearLayers();
     drawnLayer = null;
     dom.areaInfo.textContent = '';
+    state.geometry = null;
+    dom.fields.geom_wkt.value = '';
 
-    if (!wkt || !wkt.trim()) {
+    if (!geometryInput) {
         if (mapInstance) {
             mapInstance.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
             mapInstance.invalidateSize();
@@ -187,43 +191,60 @@ function drawPolygonFromWkt(wkt) {
     }
 
     try {
-        const geometry = Terraformer.WKT.parse(wkt);
-        const layer = L.geoJSON(geometry).getLayers()[0];
+        const geometry = typeof geometryInput === 'string'
+            ? JSON.parse(geometryInput)
+            : geometryInput;
+        if (!geometry || !geometry.type) {
+            throw new Error('GeoJSON inválido');
+        }
+        const layer = L.geoJSON({ type: 'Feature', properties: {}, geometry }).getLayers()[0];
         if (!layer) throw new Error('No se pudo interpretar la geometría');
         featureGroup.addLayer(layer);
         drawnLayer = layer;
+        state.geometry = geometry;
+        try {
+            dom.fields.geom_wkt.value = JSON.stringify(geometry, null, 2);
+        } catch (_) {
+            dom.fields.geom_wkt.value = '';
+        }
         mapInstance.fitBounds(layer.getBounds(), { padding: [20, 20] });
         mapInstance.invalidateSize();
         updateAreaInfo(layer.toGeoJSON().geometry);
     } catch (error) {
-        console.error('Error al dibujar WKT', error);
-        showToast('No se pudo interpretar el WKT proporcionado', true);
+        console.error('Error al dibujar geometría', error);
+        showToast('No se pudo interpretar la geometría proporcionada', true);
     }
 }
 
 function validatePolygon() {
-    if (dom.fields.geom_wkt.value.trim() === '') {
-        return true; // opcional
-    }
-
-    if (!areLibsReady()) {
-        showToast('Librerías de geometría no disponibles', true);
-        return false;
-    }
+    const manualValue = dom.fields.geom_wkt.value.trim();
+    let geometry = state.geometry;
 
     try {
-        const geometry = Terraformer.WKT.parse(dom.fields.geom_wkt.value);
-        if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) {
-            throw new Error('La geometría debe ser Polígono o MultiPolígono');
+        if (!geometry && manualValue) {
+            geometry = parseGeometryInput(manualValue);
         }
-        if (geometry.coordinates && geometry.coordinates.length === 0) {
-            throw new Error('El polígono no tiene coordenadas válidas');
-        }
-        return true;
     } catch (error) {
         showToast(`Geometría inválida: ${error.message}`, true);
         return false;
     }
+
+    if (!geometry) {
+        return true; // opcional
+    }
+
+    const validTypes = ['Polygon', 'MultiPolygon'];
+    if (!validTypes.includes(geometry.type)) {
+        showToast('La geometría debe ser Polígono o MultiPolígono', true);
+        return false;
+    }
+    if (!geometry.coordinates || geometry.coordinates.length === 0) {
+        showToast('El polígono no tiene coordenadas válidas', true);
+        return false;
+    }
+
+    state.geometry = geometry;
+    return true;
 }
 
 const animation = {
@@ -420,6 +441,9 @@ function closeModal() {
     dom.form.reset();
     dom.fields.activo.checked = true;
     dom.fields.codigo.disabled = false;
+    dom.fields.geom_wkt.value = '';
+    state.geometry = null;
+    drawnLayer = null;
 }
 
 function formatJsonTextarea(value) {
@@ -452,7 +476,14 @@ function fillFormFromData(data) {
     dom.fields.nombre.value = data.nombre ?? '';
     dom.fields.pais_codigo_iso.value = data.pais_codigo_iso ?? '';
     dom.fields.tipo.value = data.tipo ?? '';
-    dom.fields.geom_wkt.value = data.geom_wkt ?? '';
+    const geometry = data.geom_geojson ?? null;
+    try {
+        state.geometry = geometry ? parseGeometryInput(geometry) : null;
+        dom.fields.geom_wkt.value = state.geometry ? JSON.stringify(state.geometry, null, 2) : (data.geom_wkt ?? '');
+    } catch (_) {
+        state.geometry = null;
+        dom.fields.geom_wkt.value = data.geom_wkt ?? '';
+    }
     dom.fields.metadata.value = formatJsonTextarea(data.metadata ?? null);
     dom.fields.activo.checked = data.activo !== false;
 }
@@ -479,12 +510,22 @@ async function handleFormSubmit(event) {
             dom.modalSubmit.disabled = false;
             return;
         }
+        const manualGeometry = dom.fields.geom_wkt.value.trim();
+        if (!state.geometry && manualGeometry) {
+            try {
+                state.geometry = parseGeometryInput(manualGeometry);
+            } catch (error) {
+                throw new Error(error.message);
+            }
+        }
+
         const payload = {
             codigo: dom.fields.codigo.value.trim().toUpperCase(),
             nombre: dom.fields.nombre.value.trim(),
             pais_codigo_iso: dom.fields.pais_codigo_iso.value.trim().toUpperCase(),
             tipo: dom.fields.tipo.value.trim(),
-            geom_wkt: dom.fields.geom_wkt.value.trim() || null,
+            geom_geojson: state.geometry ?? null,
+            geom_wkt: !state.geometry && manualGeometry ? manualGeometry : null,
             activo: dom.fields.activo.checked
         };
 
@@ -557,6 +598,7 @@ function showToast(message, isError = false) {
 function startCreateRegion() {
     state.mode = 'create';
     state.editingCode = null;
+    state.geometry = null;
     dom.modalTitle.textContent = 'Nueva región';
     dom.modalSubmit.textContent = 'Guardar región';
     dom.modalSubmit.disabled = false;
@@ -566,7 +608,7 @@ function startCreateRegion() {
     openModal(dom.fields.codigo);
     setTimeout(() => {
         initMap();
-        drawPolygonFromWkt('');
+        drawGeometryOnMap(null);
     }, 100);
 }
 
@@ -590,7 +632,7 @@ async function startEditRegion(codigo) {
         openModal(dom.fields.nombre);
         setTimeout(() => {
             initMap();
-            drawPolygonFromWkt(response.data.geom_wkt || '');
+            drawGeometryOnMap(state.geometry);
         }, 120);
     } catch (error) {
         console.error('Error al cargar región', error);
@@ -724,7 +766,13 @@ function attachListeners() {
     });
     dom.btnLoadWkt.addEventListener('click', () => {
         initMap();
-        drawPolygonFromWkt(dom.fields.geom_wkt.value);
+        try {
+            const geometry = parseGeometryInput(dom.fields.geom_wkt.value);
+            state.geometry = geometry;
+            drawGeometryOnMap(geometry);
+        } catch (error) {
+            showToast(error.message || 'GeoJSON inválido', true);
+        }
     });
 }
 
