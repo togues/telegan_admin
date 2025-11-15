@@ -125,15 +125,16 @@
             <h2>¡Hola {{name}}!</h2>
             <p>Gracias por registrarte en <strong>{{app_name}}</strong>. Para activar tu cuenta y comenzar a usar el panel administrativo, necesitamos verificar tu dirección de email.</p>
             
-            <p>Para activar tu cuenta, simplemente haz clic en el botón de abajo:</p>
+            <p>Ingresa el siguiente PIN dentro del panel de autenticación (pantalla de “Verificación de email” o antes de iniciar sesión):</p>
             
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="{{verification_link}}" style="display: inline-block; background: linear-gradient(135deg, #6dbe45 0%, #4da1d9 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                    ✅ Activar Mi Cuenta
-                </a>
+            <div class="verification-code">
+                <h1>{{confirmation_code}}</h1>
+                <p>Válido durante 1 hora</p>
             </div>
             
-            <p><strong>⏰ El link y código son válidos por 1 hora</strong> por motivos de seguridad.</p>
+            <p style="text-align:center; color:#64748b;">También puedes copiarlo en la pantalla de login si te pedimos confirmar tu correo.</p>
+            
+            <p><strong>⏰ El PIN expira en 1 hora.</strong> Luego podrás solicitar uno nuevo desde el mismo panel.</p>
             
             <div class="security-note">
                 <p><strong>🔒 Información de seguridad:</strong> Si no solicitaste crear esta cuenta, puedes ignorar este email de forma segura. Tu dirección de email no será utilizada para ningún otro propósito.</p>

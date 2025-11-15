@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 function respond($payload, $status = 200) {
     http_response_code($status);
-    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);
     exit();
 }
 
@@ -113,7 +113,7 @@ try {
         $params['password_hash'] = password_hash($input['password'], PASSWORD_BCRYPT, ['cost' => 12]);
     }
 
-    if (isset($input['telefono'])) {
+    if (array_key_exists('telefono', $input)) {
         if (!empty($input['telefono']) && !validateInput($input['telefono'], 'string', 20)) {
             respond(['success' => false, 'error' => 'Teléfono inválido'], 400);
         }
@@ -129,19 +129,19 @@ try {
         $params['rol'] = $input['rol'];
     }
 
-    if (isset($input['activo'])) {
+    if (array_key_exists('activo', $input)) {
         $updates[] = 'activo = :activo';
-        $params['activo'] = (bool)$input['activo'];
+        $params['activo'] = $input['activo'] ? 'true' : 'false';
     }
 
-    if (isset($input['email_verificado'])) {
+    if (array_key_exists('email_verificado', $input)) {
         $updates[] = 'email_verificado = :email_verificado';
-        $params['email_verificado'] = (bool)$input['email_verificado'];
+        $params['email_verificado'] = $input['email_verificado'] ? 'true' : 'false';
     }
 
-    if (isset($input['telefono_verificado'])) {
+    if (array_key_exists('telefono_verificado', $input)) {
         $updates[] = 'telefono_verificado = :telefono_verificado';
-        $params['telefono_verificado'] = (bool)$input['telefono_verificado'];
+        $params['telefono_verificado'] = $input['telefono_verificado'] ? 'true' : 'false';
     }
 
     if (empty($updates)) {
@@ -179,7 +179,7 @@ try {
     error_log("Error en system-users-update.php: " . $e->getMessage());
     respond([
         'success' => false,
-        'error' => 'Error al actualizar usuario del sistema'
+        'error' => 'Error al actualizar usuario del sistema: ' . $e->getMessage()
     ], 500);
 }
 

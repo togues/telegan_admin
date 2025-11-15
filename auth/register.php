@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Generar código de confirmación
                 $confirmationCode = AuthSecurity::generateConfirmationCode();
-                $confirmationToken = AuthSecurity::generateSecureToken();
+                $confirmationToken = AuthSecurity::generateSecureToken(32);
                 $expirationTime = date('Y-m-d H:i:s', time() + 3600); // 1 hora
                 
                 // Hash de contraseña
@@ -77,37 +77,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 AuthDatabase::beginTransaction();
                 
                 try {
-                    // Insertar usuario ACTIVADO AUTOMÁTICAMENTE (sin validación de email)
-                    $userSql = "INSERT INTO admin_users (nombre_completo, email, password_hash, telefono, activo, email_verificado, rol) 
-                               VALUES (?, ?, ?, ?, true, true, 'TECNICO')";
+                    $userSql = "INSERT INTO admin_users (
+                                    nombre_completo,
+                                    email,
+                                    password_hash,
+                                    telefono,
+                                    rol,
+                                    activo,
+                                    email_verificado,
+                                    codigo_confirmacion,
+                                    token_confirmacion,
+                                    expiracion_confirmacion
+                                ) VALUES (?, ?, ?, ?, 'TECNICO', FALSE, FALSE, ?, ?, ?)";
                     $userParams = [
                         $nombre,
                         $email,
                         $passwordHash,
-                        $telefono ?: null
+                        $telefono ?: null,
+                        $confirmationCode,
+                        $confirmationToken,
+                        $expirationTime
                     ];
                     
-                    $userId = AuthDatabase::insert($userSql, $userParams, 'USER_REGISTERED');
+                    $userId = AuthDatabase::insert($userSql, $userParams, 'USER_REGISTERED_PENDING');
                     
-                    // Confirmar transacción
+                    $pendingSql = "INSERT INTO pending_confirmations (
+                        email,
+                        codigo_confirmacion,
+                        token_confirmacion,
+                        tipo_confirmacion,
+                        fecha_expiracion,
+                        metadata
+                    ) VALUES (?, ?, ?, 'REGISTER', ?, ?)";
+                    
+                    $metadata = json_encode([
+                        'ip' => AuthSecurity::getClientIP(),
+                        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+                    ]);
+                    
+                    AuthDatabase::insert($pendingSql, [
+                        $email,
+                        $confirmationCode,
+                        $confirmationToken,
+                        $expirationTime,
+                        $metadata
+                    ], 'REGISTER_PENDING_CONFIRMATION');
+                    
                     AuthDatabase::commit();
                     
-                    // Log de registro exitoso
-                    AuthSecurity::logSecurityEvent('USER_REGISTERED_AUTO_ACTIVATED', [
+                    // Enviar emails (fuera de la transacción)
+                    EmailManager::sendWelcomeEmail($email, $nombre);
+                    EmailManager::sendConfirmationEmail($email, $nombre, $confirmationCode, $confirmationToken);
+                    $adminMessage = sprintf(
+                        '<p><strong>Nombre:</strong> %s</p>
+                        <p><strong>Email:</strong> %s</p>
+                        <p><strong>Teléfono:</strong> %s</p>
+                        <p><strong>Fecha:</strong> %s</p>
+                        <p><strong>IP:</strong> %s</p>',
+                        htmlspecialchars($nombre, ENT_QUOTES, 'UTF-8'),
+                        htmlspecialchars($email, ENT_QUOTES, 'UTF-8'),
+                        htmlspecialchars($telefono ?: '—', ENT_QUOTES, 'UTF-8'),
+                        date('Y-m-d H:i:s'),
+                        AuthSecurity::getClientIP()
+                    );
+                    EmailManager::sendAdminNotification(
+                        'Nuevo registro en Telegan Admin',
+                        $adminMessage
+                    );
+                    
+                    AuthSecurity::logSecurityEvent('USER_REGISTERED_PENDING_CONFIRMATION', [
                         'email' => $email,
-                        'user_id' => $userId,
-                        'auto_activated' => true
+                        'user_id' => $userId
                     ], 'INFO');
                     
-                    // Crear sesión automáticamente
-                    $_SESSION['admin_logged_in'] = true;
-                    $_SESSION['admin_user_id'] = $userId;
-                    $_SESSION['admin_email'] = $email;
-                    $_SESSION['admin_nombre'] = $nombre;
-                    $_SESSION['admin_rol'] = 'TECNICO';
-                    
-                    // Redirigir directamente al dashboard
-                    header('Location: ../public/dashboard.php');
+                    $_SESSION['pending_email'] = $email;
+                    header('Location: confirm.php');
                     exit;
                     
                 } catch (Exception $e) {

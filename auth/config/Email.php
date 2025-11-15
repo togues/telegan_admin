@@ -18,19 +18,26 @@ class EmailManager
             return;
         }
 
+        self::$config = [];
+
         // Cargar configuración del entorno
         require_once __DIR__ . '/Environment.php';
         $envConfig = EnvironmentConfig::getConfig();
         
-        $envFile = __DIR__ . '/../../env';
+        $envFiles = [
+            __DIR__ . '/../../env',
+            __DIR__ . '/../../.env'
+        ];
         
-        if (file_exists($envFile)) {
-            $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            
-            foreach ($lines as $line) {
-                if (strpos($line, '=') !== false && strpos($line, '#') !== 0) {
-                    list($key, $value) = explode('=', $line, 2);
-                    self::$config[trim($key)] = trim($value);
+        foreach ($envFiles as $envFile) {
+            if (file_exists($envFile)) {
+                $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                
+                foreach ($lines as $line) {
+                    if (strpos($line, '=') !== false && strpos($line, '#') !== 0) {
+                        [$key, $value] = explode('=', $line, 2);
+                        self::$config[trim($key)] = trim($value);
+                    }
                 }
             }
         }
@@ -41,8 +48,9 @@ class EmailManager
             'MAIL_FROM_EMAIL' => 'noreply@telegan.com',
             'MAIL_REPLY_TO' => 'support@telegan.com',
             'APP_NAME' => 'Telegan Admin Panel',
-            'APP_URL' => $envConfig['base_url'] // URL automática basada en el entorno
-        ], self::$config ?? []);
+            'APP_URL' => $envConfig['base_url'] ?? 'http://localhost/TELEGAN_ADMIN',
+            'ADMIN_ALERT_EMAIL' => 'riosmarcohn@gmail.com'
+        ], self::$config);
     }
     
     /**
@@ -50,6 +58,7 @@ class EmailManager
      */
     public static function sendConfirmationEmail($email, $name, $confirmationCode, $confirmationToken = null)
     {
+        self::loadConfig();
         $subject = 'Confirma tu cuenta - ' . self::$config['APP_NAME'];
         
         // Generar link de verificación automática
@@ -88,6 +97,7 @@ class EmailManager
      */
     public static function sendPasswordResetEmail($email, $name, $resetCode, $resetToken = null)
     {
+        self::loadConfig();
         $subject = 'Recupera tu contraseña - ' . self::$config['APP_NAME'];
         
         // Generar link de reset automático
@@ -126,6 +136,7 @@ class EmailManager
      */
     public static function sendWelcomeEmail($email, $name)
     {
+        self::loadConfig();
         $subject = '¡Bienvenido a ' . self::$config['APP_NAME'] . '!';
         
         $template = self::getEmailTemplate('welcome', [
@@ -135,6 +146,20 @@ class EmailManager
         ]);
         
         return self::sendEmail($email, $subject, $template);
+    }
+    
+    /**
+     * Enviar notificación a administradores (Marcos)
+     */
+    public static function sendAdminNotification($subject, $content)
+    {
+        self::loadConfig();
+        $adminEmail = self::$config['ADMIN_ALERT_EMAIL'] ?? '';
+        if (empty($adminEmail)) {
+            return false;
+        }
+        $body = self::getBaseTemplate($subject, $content);
+        return self::sendEmail($adminEmail, $subject, $body);
     }
     
     /**
@@ -179,6 +204,7 @@ class EmailManager
      */
     private static function getEmailTemplate($templateName, $variables = [])
     {
+        self::loadConfig();
         $templatePath = __DIR__ . '/../templates/emails/' . $templateName . '.html';
         
         if (!file_exists($templatePath)) {
@@ -265,6 +291,7 @@ class EmailManager
      */
     private static function getBaseTemplate($title, $content, $buttonText = null, $buttonUrl = null)
     {
+        self::loadConfig();
         $appName = self::$config['APP_NAME'] ?? 'Telegan Admin';
         $appUrl = self::$config['APP_URL'] ?? '#';
         

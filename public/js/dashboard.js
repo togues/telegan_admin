@@ -6,6 +6,10 @@ import { ApiClient } from './ApiClient.js';
 
 // Global variables
 let apiClient;
+let insightsCache = null;
+const DASHBOARD_CACHE_KEY = 'telegan-dashboard-data';
+const DASHBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+const chartInstances = {};
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
@@ -19,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup event listeners (including tabs)
     setupEventListeners();
+    setupLogoutCleanup();
 
     // Sidebar collapsed state (persistido + colapsado por defecto en desktop)
     try {
@@ -33,7 +38,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load initial data (operational data by default)
     loadOperationalData();
     
-    // Load alerts data
+    // Load new insights (charts) + alerts
+    loadDashboardInsights();
     loadDashboardData();
     
     // Add loading animations
@@ -50,23 +56,21 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeTheme() {
     // Asegurar que el tema se aplique (theme-common.js lo hace, pero por si acaso)
     const savedTheme = localStorage.getItem('telegan-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const currentTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+    const currentTheme = savedTheme || 'dark';
     document.documentElement.setAttribute('data-theme', currentTheme);
     
     // Agregar listener adicional para mostrar notificación cuando se cambia el tema
     const themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
-        // Remover listeners previos para evitar duplicados
-        const newToggle = themeToggle.cloneNode(true);
-        themeToggle.parentNode.replaceChild(newToggle, themeToggle);
-        
-        newToggle.addEventListener('click', () => {
-            // theme-common.js ya maneja el cambio, solo mostramos notificación
+    if (themeToggle && !themeToggle.dataset.dashboardBound) {
+        themeToggle.dataset.dashboardBound = 'true';
+        themeToggle.addEventListener('click', () => {
             setTimeout(() => {
-                const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-                showNotification(`Tema cambiado a ${currentTheme === 'dark' ? 'oscuro' : 'claro'}`, 'info');
-            }, 100);
+                const activeTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+                showNotification(`Tema cambiado a ${activeTheme === 'dark' ? 'oscuro' : 'claro'}`, 'info');
+                if (insightsCache) {
+                    renderDashboardInsights(insightsCache);
+                }
+            }, 120);
         });
     }
 }
@@ -237,7 +241,7 @@ async function loadDashboardData() {
             
             // Actualizar cada tarjeta individualmente
             updateAlertCard('usuariosSinFinca', alertasData.usuarios?.sin_finca || 0);
-            updateAlertCard('usuariosInactivos', alertasData.usuarios?.inactivos_30d || 0);
+            updateAlertCard('usuariosInactivos30', alertasData.usuarios?.inactivos_30d || 0);
             updateAlertCard('usuariosNuncaLogin', alertasData.usuarios?.nunca_logueados || 0);
             updateAlertCard('usuariosSinDemo', alertasData.usuarios?.sin_demografia || 0);
             updateAlertCard('fincasSinPotreros', alertasData.fincas?.sin_potreros || 0);
@@ -283,6 +287,224 @@ async function loadDashboardData() {
 }
 
 // ===================================
+// Dashboard Insights (ECharts)
+// ===================================
+async function loadDashboardInsights(forceRefresh = false) {
+    const cached = insightsCache || getCachedInsights();
+    if (!insightsCache && cached) {
+        insightsCache = cached;
+        renderDashboardInsights(insightsCache);
+    }
+
+    const shouldShowLoader = forceRefresh || !insightsCache;
+    if (shouldShowLoader) toggleChartsLoading(true);
+
+    try {
+        const response = await apiClient.get('dashboard-insights.php', { months: 12 });
+        if (response && response.success && response.data) {
+            insightsCache = response.data;
+            cacheInsightsData(response.data);
+            renderDashboardInsights(response.data);
+        }
+    } catch (error) {
+        console.error('Error al cargar insights del dashboard:', error);
+        if (!insightsCache) {
+            showNotification('Error al cargar insights del dashboard', 'error');
+        }
+    } finally {
+        if (shouldShowLoader) toggleChartsLoading(false);
+    }
+}
+
+function renderDashboardInsights(data) {
+    if (!data) return;
+    renderOperationalCharts(data.series || {});
+    renderAlertRadars(data.radar || {});
+    setTimeout(resizeCharts, 100);
+}
+
+function renderOperationalCharts(series) {
+    const usuariosSeries = series.usuarios || [];
+    const fincasSeries = series.fincas || [];
+    const registrosSeries = series.registros || [];
+
+    const usuariosMeses = usuariosSeries.map(item => item.mes);
+    const usuariosValores = usuariosSeries.map(item => item.total);
+    const fincasMeses = fincasSeries.map(item => item.mes);
+    const fincasValores = fincasSeries.map(item => item.total);
+    const registrosMeses = registrosSeries.map(item => item.mes);
+    const registrosValores = registrosSeries.map(item => item.total);
+
+    renderLineChart('chartUsuariosLine', usuariosMeses, usuariosValores, getChartThemeColors().primary);
+    renderLineChart('chartRegistrosLine', registrosMeses, registrosValores, getChartThemeColors().accent);
+    renderLineChart('chartFincasLine', fincasMeses, fincasValores, getChartThemeColors().secondary);
+}
+
+function renderAlertRadars(radarData) {
+    renderRadarChart('chartRadarUsuarios', radarData.usuarios || [], 'Alertas de usuarios');
+    renderRadarChart('chartRadarFincas', radarData.fincas || [], 'Alertas de fincas');
+}
+
+function renderLineChart(elementId, categories, values, color) {
+    const chart = initChartInstance(elementId);
+    if (!chart || !categories.length) {
+        if (chart) chart.clear();
+        return;
+    }
+
+    const colors = getChartThemeColors();
+    chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis', axisPointer: { type: 'line' } },
+        grid: { left: 0, right: 0, top: 10, bottom: 10, containLabel: false },
+        xAxis: {
+            type: 'category',
+            data: categories,
+            boundaryGap: false,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: { show: false }
+        },
+        yAxis: {
+            type: 'value',
+            show: false
+        },
+        series: [{
+            type: 'line',
+            data: values,
+            smooth: true,
+            symbol: 'none',
+            lineStyle: { width: 2, color },
+            areaStyle: {
+                color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: hexToRgba(color, 0.35) },
+                    { offset: 1, color: hexToRgba(color, 0.05) }
+                ])
+            }
+        }]
+    });
+    requestAnimationFrame(() => chart.resize());
+}
+
+function renderRadarChart(elementId, dataSet, label) {
+    const chart = initChartInstance(elementId);
+    if (!chart || !dataSet.length) {
+        if (chart) chart.clear();
+        return;
+    }
+
+    const values = dataSet.map(item => item.valor || 0);
+    const maxValue = Math.max(...values, 5);
+    const indicators = dataSet.map(item => ({
+        name: item.categoria,
+        max: Math.ceil(maxValue * 1.2) || 5
+    }));
+
+    const colors = getChartThemeColors();
+
+    chart.setOption({
+        tooltip: {},
+        radar: {
+            indicator: indicators,
+            splitNumber: 4,
+            axisName: {
+                color: colors.text
+            },
+            splitLine: {
+                lineStyle: {
+                    color: hexToRgba(colors.text, 0.25)
+                }
+            },
+            splitArea: { show: false },
+            axisLine: {
+                lineStyle: {
+                    color: hexToRgba(colors.text, 0.2)
+                }
+            }
+        },
+        series: [{
+            type: 'radar',
+            data: [{
+                value: values,
+                name: label,
+                areaStyle: { color: hexToRgba(colors.primary, 0.25) },
+                lineStyle: { color: colors.primary, width: 2 },
+                itemStyle: { color: colors.primary }
+            }]
+        }]
+    });
+    requestAnimationFrame(() => chart.resize());
+}
+
+function initChartInstance(elementId) {
+    if (typeof window === 'undefined' || !window.echarts) {
+        console.warn('ECharts no está disponible en este contexto.');
+        return null;
+    }
+    const el = document.getElementById(elementId);
+    if (!el) {
+        console.warn(`No se encontró contenedor para el gráfico ${elementId}`);
+        return null;
+    }
+    if (chartInstances[elementId]) {
+        return chartInstances[elementId];
+    }
+    chartInstances[elementId] = window.echarts.init(el);
+    return chartInstances[elementId];
+}
+
+function cacheInsightsData(data) {
+    try {
+        const payload = {
+            timestamp: Date.now(),
+            data
+        };
+        localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(payload));
+    } catch (_) {
+        // Ignorar errores de almacenamiento
+    }
+}
+
+function getCachedInsights() {
+    try {
+        const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.timestamp || !parsed.data) {
+            localStorage.removeItem(DASHBOARD_CACHE_KEY);
+            return null;
+        }
+        if ((Date.now() - parsed.timestamp) > DASHBOARD_CACHE_TTL) {
+            localStorage.removeItem(DASHBOARD_CACHE_KEY);
+            return null;
+        }
+        return parsed.data;
+    } catch (_) {
+        return null;
+    }
+}
+
+function setupLogoutCleanup() {
+    const logoutLinks = document.querySelectorAll('a[href*="logout.php"]');
+    const clear = () => clearDashboardCache();
+    logoutLinks.forEach(link => {
+        link.addEventListener('click', clear);
+    });
+}
+
+function clearDashboardCache() {
+    try {
+        localStorage.removeItem(DASHBOARD_CACHE_KEY);
+    } catch (_) {}
+}
+
+function toggleChartsLoading(show) {
+    const loader = document.getElementById('chartsLoading');
+    if (!loader) return;
+    loader.classList.toggle('show', show);
+}
+
+// ===================================
 // Loading States
 // ===================================
 function addLoadingToCards() {
@@ -314,7 +536,7 @@ function updateAlertas(alertasData) {
     
     // Actualizar alertas de usuarios
     updateAlertCard('usuariosSinFinca', usuarios?.sin_finca || 0);
-    updateAlertCard('usuariosInactivos', usuarios?.inactivos_30d || 0);
+    updateAlertCard('usuariosInactivos30', usuarios?.inactivos_30d || 0);
     updateAlertCard('usuariosNuncaLogin', usuarios?.nunca_logueados || 0);
     updateAlertCard('usuariosSinDemo', usuarios?.sin_demografia || 0);
     
@@ -434,6 +656,8 @@ function setupTabs() {
                 // Cargar alertas cuando se active la pestaña
                 loadAlertsData();
             }
+            
+            setTimeout(resizeCharts, 150);
         });
     });
 }
@@ -451,6 +675,7 @@ async function loadAlertsData() {
         if (response && response.success) {
             updateAlertas(response.data);
             showNotification('Alertas actualizadas', 'success');
+            setTimeout(resizeCharts, 120);
         } else {
             showNotification('Error al cargar alertas', 'error');
         }
@@ -473,6 +698,7 @@ async function loadOperationalData() {
         if (response && response.success) {
             updateOperationalStats(response.data);
             showNotification('Datos operativos actualizados', 'success');
+            setTimeout(resizeCharts, 120);
         } else {
             showNotification('Error al cargar datos operativos', 'error');
         }
@@ -772,6 +998,53 @@ window.goBackToSearch = function() {
     // Focus search input
     document.getElementById('search-input').focus();
 };
+
+// ===================================
+// Chart Utilities & Helpers
+// ===================================
+function getChartThemeColors() {
+    const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
+    return {
+        text: isDark ? '#e5e7eb' : '#1f2937',
+        grid: isDark ? '#1f2937' : '#f3f4f6',
+        primary: '#6dbe45',
+        secondary: '#4da1d9',
+        accent: '#a4d65e'
+    };
+}
+
+function hexToRgba(hex, alpha = 1) {
+    let sanitized = hex.replace('#', '');
+    if (sanitized.length === 3) {
+        sanitized = sanitized.split('').map(c => c + c).join('');
+    }
+    const bigint = parseInt(sanitized, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function resizeCharts() {
+    Object.values(chartInstances).forEach(instance => {
+        if (instance && typeof instance.resize === 'function') {
+            instance.resize();
+        }
+    });
+}
+
+window.addEventListener('resize', throttle(resizeCharts, 200));
+
+function throttle(fn, wait = 200) {
+    let lastTime = 0;
+    return function throttled(...args) {
+        const now = Date.now();
+        if (now - lastTime >= wait) {
+            lastTime = now;
+            fn.apply(this, args);
+        }
+    };
+}
 
 // Global function to show farm details
 window.showFarmDetails = function(farmId, farmName) {

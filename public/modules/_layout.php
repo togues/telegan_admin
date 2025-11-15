@@ -1,4 +1,7 @@
 <?php
+session_start();
+$userRole = $_SESSION['admin_role'] ?? $_SESSION['admin_rol'] ?? 'TECNICO';
+
 if (!isset($moduleTitle)) {
     $moduleTitle = 'Panel';
 }
@@ -13,6 +16,32 @@ if (!isset($moduleScripts)) {
 }
 $layoutActive = $layoutActive ?? '';
 $bottomNav = $bottomNav ?? true;
+
+$modulePermissions = [
+    'dashboard'     => ['SUPER_ADMIN', 'TECNICO', 'ADMIN_FINCA'],
+    'users'         => ['SUPER_ADMIN', 'TECNICO', 'ADMIN_FINCA'],
+    'farms'         => ['SUPER_ADMIN', 'TECNICO', 'ADMIN_FINCA'],
+    'system-users'  => ['SUPER_ADMIN'],
+    'providers'     => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+    'indices'       => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+    'regions'       => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+    'fincas-geom'   => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+    'thresholds'    => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+    'records'       => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+    'alerts'        => ['SUPER_ADMIN', 'ADMIN_FINCA']
+];
+
+$canAccessModule = function (string $moduleKey) use ($modulePermissions, $userRole): bool {
+    if (!isset($modulePermissions[$moduleKey])) {
+        return true;
+    }
+    return in_array($userRole, $modulePermissions[$moduleKey], true);
+};
+
+if ($layoutActive && !$canAccessModule($layoutActive)) {
+    header('Location: ../../dashboard.php?unauthorized=1');
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -91,6 +120,7 @@ $bottomNav = $bottomNav ?? true;
                 </button>
             </div>
             <ul class="sidebar-menu">
+                <?php if ($canAccessModule('dashboard')): ?>
                 <li class="menu-item <?php echo $layoutActive === 'dashboard' ? 'active' : ''; ?>">
                     <a href="../../dashboard.php" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -102,6 +132,8 @@ $bottomNav = $bottomNav ?? true;
                         <span class="menu-text">Dashboard</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('users')): ?>
                 <li class="menu-item <?php echo $layoutActive === 'users' ? 'active' : ''; ?>">
                     <a href="../users/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -111,6 +143,8 @@ $bottomNav = $bottomNav ?? true;
                         <span class="menu-text">Usuarios</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('system-users')): ?>
                 <li class="menu-item <?php echo $layoutActive === 'system-users' ? 'active' : ''; ?>">
                     <a href="../system-users/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -121,6 +155,8 @@ $bottomNav = $bottomNav ?? true;
                         <span class="menu-text">Administradores</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('farms')): ?>
                 <li class="menu-item <?php echo $layoutActive === 'farms' ? 'active' : ''; ?>">
                     <a href="../farms/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -129,6 +165,8 @@ $bottomNav = $bottomNav ?? true;
                         <span class="menu-text">Fincas</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('providers')): ?>
                 <li class="menu-item <?php echo $layoutActive === 'providers' ? 'active' : ''; ?>">
                     <a href="../providers/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -140,6 +178,8 @@ $bottomNav = $bottomNav ?? true;
                         <span class="menu-text">Proveedores</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('indices')): ?>
                 <li class="menu-item <?php echo $layoutActive === 'indices' ? 'active' : ''; ?>">
                     <a href="../indices/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -151,6 +191,8 @@ $bottomNav = $bottomNav ?? true;
                         <span class="menu-text">Índices</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('regions')): ?>
                 <li class="menu-item <?php echo $layoutActive === 'regions' ? 'active' : ''; ?>">
                     <a href="../regions/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -161,6 +203,8 @@ $bottomNav = $bottomNav ?? true;
                         <span class="menu-text">Regiones</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('fincas-geom')): ?>
                 <li class="menu-item <?php echo $layoutActive === 'fincas-geom' ? 'active' : ''; ?>">
                     <a href="../fincas-geom/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -171,6 +215,8 @@ $bottomNav = $bottomNav ?? true;
                         <span class="menu-text">Geom. Fincas</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('thresholds')): ?>
                 <li class="menu-item <?php echo $layoutActive === 'thresholds' ? 'active' : ''; ?>">
                     <a href="../thresholds/" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -180,6 +226,7 @@ $bottomNav = $bottomNav ?? true;
                         <span class="menu-text">Umbrales</span>
                     </a>
                 </li>
+                <?php endif; ?>
             </ul>
         </div>
     </nav>
@@ -197,6 +244,7 @@ $bottomNav = $bottomNav ?? true;
 
     <?php if ($bottomNav) : ?>
     <nav class="bottom-nav">
+        <?php if ($canAccessModule('dashboard')): ?>
         <a href="../../dashboard.php" class="nav-item <?php echo $layoutActive === 'dashboard' ? 'active' : ''; ?>">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="7" height="7"></rect>
@@ -206,6 +254,8 @@ $bottomNav = $bottomNav ?? true;
             </svg>
             <span>Dashboard</span>
         </a>
+        <?php endif; ?>
+        <?php if ($canAccessModule('providers')): ?>
         <a href="../providers/" class="nav-item <?php echo $layoutActive === 'providers' ? 'active' : ''; ?>">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 8V6a2 2 0 0 0-2-2h-4"></path>
@@ -215,6 +265,8 @@ $bottomNav = $bottomNav ?? true;
             </svg>
             <span>Proveedores</span>
         </a>
+        <?php endif; ?>
+        <?php if ($canAccessModule('indices')): ?>
         <a href="../indices/" class="nav-item <?php echo $layoutActive === 'indices' ? 'active' : ''; ?>">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 3h18v6H3z"></path>
@@ -224,6 +276,8 @@ $bottomNav = $bottomNav ?? true;
             </svg>
             <span>Índices</span>
         </a>
+        <?php endif; ?>
+        <?php if ($canAccessModule('regions')): ?>
         <a href="../regions/" class="nav-item <?php echo $layoutActive === 'regions' ? 'active' : ''; ?>">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 4h16v4H4z"></path>
@@ -232,6 +286,8 @@ $bottomNav = $bottomNav ?? true;
             </svg>
             <span>Regiones</span>
         </a>
+        <?php endif; ?>
+        <?php if ($canAccessModule('fincas-geom')): ?>
         <a href="../fincas-geom/" class="nav-item <?php echo $layoutActive === 'fincas-geom' ? 'active' : ''; ?>">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -240,6 +296,8 @@ $bottomNav = $bottomNav ?? true;
             </svg>
             <span>Geom. Fincas</span>
         </a>
+        <?php endif; ?>
+        <?php if ($canAccessModule('thresholds')): ?>
         <a href="../thresholds/" class="nav-item <?php echo $layoutActive === 'thresholds' ? 'active' : ''; ?>">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9 14l2 2 4-4"></path>
@@ -247,6 +305,7 @@ $bottomNav = $bottomNav ?? true;
             </svg>
             <span>Umbrales</span>
         </a>
+        <?php endif; ?>
     </nav>
     <?php endif; ?>
 

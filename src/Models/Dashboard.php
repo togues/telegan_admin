@@ -81,6 +81,72 @@ class Dashboard
     }
 
     /**
+     * Usuarios registrados por mes (últimos N meses)
+     */
+    public function getUsuariosPorMes($meses = 12)
+    {
+        try {
+            $sql = "
+                SELECT
+                    TO_CHAR(date_trunc('month', fecha_registro), 'YYYY-MM') AS mes,
+                    COUNT(*) AS total
+                FROM usuario
+                WHERE fecha_registro >= date_trunc('month', CURRENT_DATE) - INTERVAL '{$meses} months'
+                GROUP BY 1
+                ORDER BY 1 ASC
+            ";
+            return Database::fetchAll($sql);
+        } catch (Exception $e) {
+            error_log('Error al obtener usuarios por mes: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Fincas creadas por mes
+     */
+    public function getFincasPorMes($meses = 12)
+    {
+        try {
+            $sql = "
+                SELECT
+                    TO_CHAR(date_trunc('month', fecha_creacion), 'YYYY-MM') AS mes,
+                    COUNT(*) AS total
+                FROM finca
+                WHERE fecha_creacion >= date_trunc('month', CURRENT_DATE) - INTERVAL '{$meses} months'
+                GROUP BY 1
+                ORDER BY 1 ASC
+            ";
+            return Database::fetchAll($sql);
+        } catch (Exception $e) {
+            error_log('Error al obtener fincas por mes: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Registro ganadero por mes
+     */
+    public function getRegistrosPorMes($meses = 12)
+    {
+        try {
+            $sql = "
+                SELECT
+                    TO_CHAR(date_trunc('month', fecha_registro), 'YYYY-MM') AS mes,
+                    COUNT(*) AS total
+                FROM registro_ganadero
+                WHERE fecha_registro >= date_trunc('month', CURRENT_DATE) - INTERVAL '{$meses} months'
+                GROUP BY 1
+                ORDER BY 1 ASC
+            ";
+            return Database::fetchAll($sql);
+        } catch (Exception $e) {
+            error_log('Error al obtener registros por mes: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
      * Obtener usuarios administradores de finca
      */
     public function getUsuariosAdministradores()
@@ -115,13 +181,13 @@ class Dashboard
     {
         return array(
             'total_usuarios' => $this->getTotalUsuarios(),
-            'usuarios_activos' => $this->getUsuariosActivos(),
-            'total_fincas' => $this->getTotalFincas(),
-            'total_potreros' => $this->getTotalPotreros(),
-            'total_registros_ganaderos' => $this->getTotalRegistrosGanaderos(),
-            'usuarios_administradores' => $this->getUsuariosAdministradores(),
-            'usuarios_colaboradores' => $this->getUsuariosColaboradores(),
-            'timestamp' => date('Y-m-d H:i:s')
+                'usuarios_activos' => $this->getUsuariosActivos(),
+                'total_fincas' => $this->getTotalFincas(),
+                'total_potreros' => $this->getTotalPotreros(),
+                'total_registros_ganaderos' => $this->getTotalRegistrosGanaderos(),
+                'usuarios_administradores' => $this->getUsuariosAdministradores(),
+                'usuarios_colaboradores' => $this->getUsuariosColaboradores(),
+                'timestamp' => date('Y-m-d H:i:s')
         );
     }
 

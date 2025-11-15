@@ -12,8 +12,7 @@ Security::init();
 
 // Manejar logout
 if (isset($_GET['logout']) && $_GET['logout'] == '1') {
-    session_destroy();
-    header('Location: ../auth/login.php');
+    header('Location: ../auth/logout.php');
     exit;
 }
 
@@ -51,6 +50,81 @@ $asset = static function (string $path) use ($assetBase): string {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        .chart-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .chart-panels {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+        .chart-panel {
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            background: var(--bg-card);
+            padding: 1rem;
+            min-height: 260px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-sm);
+        }
+        .chart-panel-header {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chart-panel-body {
+            flex: 1;
+            width: 100%;
+            min-height: 200px;
+        }
+        .radar-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .radar-card {
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            background: var(--bg-card);
+            padding: 1rem;
+            height: 320px;
+            box-shadow: var(--shadow-sm);
+        }
+        .charts-loading {
+            position: relative;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 16px;
+            border: 1px dashed var(--border-color);
+            background: var(--bg-secondary);
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .charts-loading.show {
+            display: inline-flex;
+        }
+        .charts-loading .charts-spinner {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.15);
+            border-top-color: var(--accent-secondary);
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    <script src="<?php echo $asset('js/vendors/echarts.min.js'); ?>"></script>
     <script>
         // Variables de sesión para JavaScript
         window.userSession = {
@@ -203,9 +277,22 @@ $asset = static function (string $path) use ($assetBase): string {
 
     <!-- Main Content -->
     <main class="main-content">
+        <?php if ($unauthorizedNotice): ?>
+        <div style="margin-bottom:1rem;padding:0.85rem 1rem;border-radius:14px;background:rgba(251,191,36,0.18);color:#92400e;border:1px solid rgba(251,191,36,0.4);">
+            No tienes permiso para acceder a ese módulo. Si necesitas acceso, comunícate con el administrador.
+        </div>
+        <?php endif; ?>
+
         <div class="content-header">
             <h1 class="page-title">Dashboard</h1>
             <p class="page-subtitle">Panel de control Telegan</p>
+        </div>
+        <div id="chartsLoading" class="charts-loading">
+            <div class="charts-spinner"></div>
+            <div>
+                <strong>Cargando visualizaciones...</strong>
+                <p style="margin:0;color:var(--text-secondary);font-size:0.85rem;">Estamos preparando los gráficos con tus datos más recientes.</p>
+            </div>
         </div>
 
         <!-- Connection Status Card -->
@@ -229,8 +316,8 @@ $asset = static function (string $path) use ($assetBase): string {
 
         <!-- Tabs Navigation -->
         <div class="tabs-container">
-            <div class="tabs-nav">
-                <button class="tab-button active" data-tab="operational">
+        <div class="tabs-nav">
+            <button class="tab-button active" data-tab="operational">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="3" width="7" height="7"></rect>
                         <rect x="14" y="3" width="7" height="7"></rect>
@@ -250,6 +337,26 @@ $asset = static function (string $path) use ($assetBase): string {
 
             <!-- Tab Content: Datos Operativos -->
             <div class="tab-content active" id="operational-tab">
+                <div class="chart-panels">
+                    <div class="chart-panel">
+                        <div class="chart-panel-header">
+                            Usuarios registrados (12 meses)
+                        </div>
+                        <div id="chartUsuariosLine" class="chart-panel-body"></div>
+                    </div>
+                    <div class="chart-panel">
+                        <div class="chart-panel-header">
+                            Actividad ganadera
+                        </div>
+                        <div id="chartRegistrosLine" class="chart-panel-body"></div>
+                    </div>
+                    <div class="chart-panel">
+                        <div class="chart-panel-header">
+                            Fincas creadas
+                        </div>
+                        <div id="chartFincasLine" class="chart-panel-body"></div>
+                    </div>
+                </div>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-header">
@@ -257,12 +364,6 @@ $asset = static function (string $path) use ($assetBase): string {
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                                     <circle cx="12" cy="7" r="4"></circle>
-                                </svg>
-                            </div>
-                            <div class="stat-trend">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                                    <polyline points="17 6 23 6 23 12"></polyline>
                                 </svg>
                             </div>
                         </div>
@@ -282,12 +383,6 @@ $asset = static function (string $path) use ($assetBase): string {
                                     <path d="M3 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3"></path>
                                 </svg>
                             </div>
-                            <div class="stat-trend">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                                    <polyline points="17 6 23 6 23 12"></polyline>
-                                </svg>
-                            </div>
                         </div>
                         <div class="stat-content">
                             <h3 class="stat-title">Usuarios Activos</h3>
@@ -301,12 +396,6 @@ $asset = static function (string $path) use ($assetBase): string {
                             <div class="stat-icon">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                                </svg>
-                            </div>
-                            <div class="stat-trend">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                                    <polyline points="17 6 23 6 23 12"></polyline>
                                 </svg>
                             </div>
                         </div>
@@ -417,13 +506,23 @@ $asset = static function (string $path) use ($assetBase): string {
             <!-- Tab Content: Alertas Críticas -->
             <div class="tab-content" id="alerts-tab">
                 <!-- Alertas Críticas -->
+                <div class="radar-grid">
+                    <div class="radar-card">
+                        <h3 style="margin-bottom:0.5rem;">Alertas de Usuarios</h3>
+                        <div id="chartRadarUsuarios" style="width:100%;height:260px;"></div>
+                    </div>
+                    <div class="radar-card">
+                        <h3 style="margin-bottom:0.5rem;">Alertas de Fincas</h3>
+                        <div id="chartRadarFincas" style="width:100%;height:260px;"></div>
+                    </div>
+                </div>
                 <div class="alerts-section">
                     <div class="section-header">
                         <h2 class="section-title">🚨 Alertas Críticas</h2>
                         <p class="section-subtitle">Problemas que requieren atención inmediata</p>
                     </div>
                     
-                    <div class="alerts-grid">
+            <div class="alerts-grid">
                         <!-- Alertas de Usuarios -->
                         <div class="alert-category">
                             <h3 class="category-title">
