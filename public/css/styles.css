@@ -179,6 +179,12 @@ body {
   transition: box-shadow var(--timing-base) ease;
 }
 
+/* Header con gradiente - background transparente */
+.header.header-gradient {
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .header:hover {
   box-shadow: var(--shadow-lg);
 }
@@ -266,6 +272,13 @@ body {
   border-radius: 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
+}
+
+.user-info .btn-secondary {
+  margin-left: 0;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .user-avatar {

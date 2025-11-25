@@ -46,8 +46,6 @@ try {
     }
 
     $usuariosPorMes = $dashboard->getUsuariosPorMes($months);
-    $fincasPorMes = $dashboard->getFincasPorMes($months);
-    $registrosPorMes = $dashboard->getRegistrosPorMes($months);
 
     $alertsResumen = $dashboard->getResumenAlertas();
     $radarUsuarios = [
@@ -70,9 +68,7 @@ try {
         'success' => true,
         'data'    => [
             'series' => [
-                'usuarios'   => $usuariosPorMes,
-                'fincas'     => $fincasPorMes,
-                'registros'  => $registrosPorMes
+                'usuarios' => $usuariosPorMes
             ],
             'radar' => [
                 'usuarios' => $radarUsuarios,

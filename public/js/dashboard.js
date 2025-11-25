@@ -325,19 +325,13 @@ function renderDashboardInsights(data) {
 
 function renderOperationalCharts(series) {
     const usuariosSeries = series.usuarios || [];
-    const fincasSeries = series.fincas || [];
-    const registrosSeries = series.registros || [];
 
-    const usuariosMeses = usuariosSeries.map(item => item.mes);
-    const usuariosValores = usuariosSeries.map(item => item.total);
-    const fincasMeses = fincasSeries.map(item => item.mes);
-    const fincasValores = fincasSeries.map(item => item.total);
-    const registrosMeses = registrosSeries.map(item => item.mes);
-    const registrosValores = registrosSeries.map(item => item.total);
-
-    renderLineChart('chartUsuariosLine', usuariosMeses, usuariosValores, getChartThemeColors().primary);
-    renderLineChart('chartRegistrosLine', registrosMeses, registrosValores, getChartThemeColors().accent);
-    renderLineChart('chartFincasLine', fincasMeses, fincasValores, getChartThemeColors().secondary);
+    // Solo renderizar gráfico de usuarios (el único que queda)
+    if (usuariosSeries.length > 0) {
+        const usuariosMeses = usuariosSeries.map(item => item.mes || '');
+        const usuariosValores = usuariosSeries.map(item => parseInt(item.total) || 0);
+        renderLineChart('chartUsuariosLine', usuariosMeses, usuariosValores, getChartThemeColors().primary);
+    }
 }
 
 function renderAlertRadars(radarData) {
@@ -347,8 +341,12 @@ function renderAlertRadars(radarData) {
 
 function renderLineChart(elementId, categories, values, color) {
     const chart = initChartInstance(elementId);
-    if (!chart || !categories.length) {
+    if (!chart || !categories || !categories.length || !values || !values.length) {
         if (chart) chart.clear();
+        return;
+    }
+    
+    if (categories.length !== values.length) {
         return;
     }
 

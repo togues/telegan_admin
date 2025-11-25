@@ -293,24 +293,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesión - Telegan Admin</title>
     <link rel="stylesheet" href="assets/css/auth.css">
+    <link rel="stylesheet" href="../public/css/futuristic-theme.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
-        // Cargar tema guardado o detectar preferencia del sistema
+        // Login siempre inicia en tema oscuro por defecto (forzado)
         document.addEventListener('DOMContentLoaded', function() {
-            const savedTheme = localStorage.getItem('telegan-theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-theme', theme);
+            // Forzar tema oscuro en login, ignorar localStorage
+            document.documentElement.setAttribute('data-theme', 'dark');
         });
     </script>
 </head>
-<body>
+<body class="login-futuristic-bg">
     <div class="auth-container">
         <div class="auth-card">
             <div class="auth-header">
-                <div class="logo">
-                    <h1>Telegan</h1>
-                    <span>Admin Panel</span>
+                <div class="logo-container">
+                    <img src="https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=768,fit=crop,q=95/Awv47aJZwzHGVp4M/logos-mk3vk7Qp1gS7Jann.png" 
+                         alt="Telegan Logo" 
+                         class="logo-image">
                 </div>
                 <h2>Bienvenido</h2>
                 <p>Ingresa a tu cuenta de Dashboard Telegan</p>

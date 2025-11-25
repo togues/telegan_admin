@@ -112,6 +112,11 @@ body {
   padding: var(--spacing-md);
 }
 
+/* Login con fondo de imagen - quitar gradiente */
+body.login-futuristic-bg {
+  background: transparent;
+}
+
 /* Contenedor principal */
 .auth-container {
   width: 100%;
@@ -149,6 +154,38 @@ body {
   font-size: 0.875rem;
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+/* Logo container con imagen */
+.logo-container {
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-md);
+}
+
+.logo-image {
+  max-width: 200px;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-normal);
+  object-fit: contain;
+  padding: var(--spacing-sm);
+}
+
+.logo-image:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-xl);
+}
+
+/* Responsive para logo */
+@media (max-width: 480px) {
+  .logo-image {
+    max-width: 150px;
+  }
 }
 
 .auth-header h2 {

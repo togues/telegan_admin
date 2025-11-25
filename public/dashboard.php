@@ -46,6 +46,7 @@ $asset = static function (string $path) use ($assetBase): string {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Telegan Admin</title>
     <link rel="stylesheet" href="<?php echo $asset('css/styles.css'); ?>">
+    <link rel="stylesheet" href="<?php echo $asset('css/futuristic-theme.css'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -150,7 +151,7 @@ $asset = static function (string $path) use ($assetBase): string {
     
 
     <!-- Header -->
-    <header class="header">
+    <header class="header header-gradient">
         <div class="header-content">
             <div class="header-left">
                 <button class="menu-toggle" id="menuToggle" title="Menú">
@@ -194,6 +195,7 @@ $asset = static function (string $path) use ($assetBase): string {
                         <span><?php echo strtoupper(substr($userName, 0, 2)); ?></span>
                     </div>
                     <span class="user-name"><?php echo htmlspecialchars($userName); ?></span>
+                    <a href="../auth/logout.php" class="btn-secondary">Cerrar sesión</a>
                 </div>
             </div>
         </div>
@@ -210,8 +212,30 @@ $asset = static function (string $path) use ($assetBase): string {
                 </button>
             </div>
             <ul class="sidebar-menu">
+                <?php
+                // Sistema de permisos igual que _layout.php
+                $modulePermissions = [
+                    'dashboard'     => ['SUPER_ADMIN', 'TECNICO', 'ADMIN_FINCA'],
+                    'users'         => ['SUPER_ADMIN', 'TECNICO', 'ADMIN_FINCA'],
+                    'farms'         => ['SUPER_ADMIN', 'TECNICO', 'ADMIN_FINCA'],
+                    'system-users'  => ['SUPER_ADMIN'],
+                    'providers'     => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+                    'indices'       => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+                    'regions'       => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+                    'fincas-geom'   => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+                    'thresholds'    => ['SUPER_ADMIN', 'ADMIN_FINCA'],
+                ];
+                
+                $canAccessModule = function (string $moduleKey) use ($modulePermissions, $userRole): bool {
+                    if (!isset($modulePermissions[$moduleKey])) {
+                        return true;
+                    }
+                    return in_array($userRole, $modulePermissions[$moduleKey], true);
+                };
+                ?>
+                <?php if ($canAccessModule('dashboard')): ?>
                 <li class="menu-item active">
-                    <a href="#" class="menu-link">
+                    <a href="dashboard.php" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="3" y="3" width="7" height="7"></rect>
                             <rect x="14" y="3" width="7" height="7"></rect>
@@ -221,6 +245,8 @@ $asset = static function (string $path) use ($assetBase): string {
                         <span class="menu-text">Dashboard</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('users')): ?>
                 <li class="menu-item">
                     <a href="<?php echo $asset('modules/users/'); ?>" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -230,6 +256,8 @@ $asset = static function (string $path) use ($assetBase): string {
                         <span class="menu-text">Usuarios</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('system-users')): ?>
                 <li class="menu-item">
                     <a href="<?php echo $asset('modules/system-users/'); ?>" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -240,37 +268,78 @@ $asset = static function (string $path) use ($assetBase): string {
                         <span class="menu-text">Administradores</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('farms')): ?>
                 <li class="menu-item">
                     <a href="<?php echo $asset('modules/farms/'); ?>" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                            <polyline points="3.27,6.96 12,12.01 20.73,6.96"></polyline>
-                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
                         </svg>
                         <span class="menu-text">Fincas</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('providers')): ?>
                 <li class="menu-item">
-                    <a href="<?php echo $asset('modules/records/'); ?>" class="menu-link">
+                    <a href="<?php echo $asset('modules/providers/'); ?>" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                            <path d="M2 17l10 5 10-5"></path>
-                            <path d="M2 12l10 5 10-5"></path>
+                            <path d="M21 8V6a2 2 0 0 0-2-2h-4"></path>
+                            <path d="M3 8V6a2 2 0 0 1 2-2h4"></path>
+                            <path d="M21 16v2a2 2 0 0 1-2 2h-4"></path>
+                            <path d="M3 16v2a2 2 0 0 0 2 2h4"></path>
                         </svg>
-                        <span class="menu-text">Potreros</span>
+                        <span class="menu-text">Proveedores</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('indices')): ?>
                 <li class="menu-item">
-                    <a href="<?php echo $asset('modules/records/'); ?>" class="menu-link">
+                    <a href="<?php echo $asset('modules/indices/'); ?>" class="menu-link">
                         <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14,2 14,8 20,8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <path d="M3 3h18v6H3z"></path>
+                            <path d="M3 15h18v6H3z"></path>
+                            <path d="M8 9v6"></path>
+                            <path d="M16 9v6"></path>
                         </svg>
-                        <span class="menu-text">Registros</span>
+                        <span class="menu-text">Índices</span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('regions')): ?>
+                <li class="menu-item">
+                    <a href="<?php echo $asset('modules/regions/'); ?>" class="menu-link">
+                        <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 4h16v4H4z"></path>
+                            <path d="M4 12h16v4H4z"></path>
+                            <path d="M4 20h10v-4H4z"></path>
+                        </svg>
+                        <span class="menu-text">Regiones</span>
+                    </a>
+                </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('fincas-geom')): ?>
+                <li class="menu-item">
+                    <a href="<?php echo $asset('modules/fincas-geom/'); ?>" class="menu-link">
+                        <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            <path d="M8 10h8"></path>
+                            <path d="M12 6v8"></path>
+                        </svg>
+                        <span class="menu-text">Geom. Fincas</span>
+                    </a>
+                </li>
+                <?php endif; ?>
+                <?php if ($canAccessModule('thresholds')): ?>
+                <li class="menu-item">
+                    <a href="<?php echo $asset('modules/thresholds/'); ?>" class="menu-link">
+                        <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 14l2 2 4-4"></path>
+                            <rect x="3" y="5" width="18" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                        <span class="menu-text">Umbrales</span>
+                    </a>
+                </li>
+                <?php endif; ?>
             </ul>
         </div>
     </nav>
@@ -338,23 +407,11 @@ $asset = static function (string $path) use ($assetBase): string {
             <!-- Tab Content: Datos Operativos -->
             <div class="tab-content active" id="operational-tab">
                 <div class="chart-panels">
-                    <div class="chart-panel">
+                    <div class="chart-panel" style="grid-column: 1 / -1;">
                         <div class="chart-panel-header">
                             Usuarios registrados (12 meses)
                         </div>
                         <div id="chartUsuariosLine" class="chart-panel-body"></div>
-                    </div>
-                    <div class="chart-panel">
-                        <div class="chart-panel-header">
-                            Actividad ganadera
-                        </div>
-                        <div id="chartRegistrosLine" class="chart-panel-body"></div>
-                    </div>
-                    <div class="chart-panel">
-                        <div class="chart-panel-header">
-                            Fincas creadas
-                        </div>
-                        <div id="chartFincasLine" class="chart-panel-body"></div>
                     </div>
                 </div>
                 <div class="stats-grid">

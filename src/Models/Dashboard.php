@@ -147,6 +147,50 @@ class Dashboard
     }
 
     /**
+     * Registro ganadero por día (últimos N días)
+     */
+    public function getRegistrosPorDia($dias = 30)
+    {
+        try {
+            $sql = "
+                SELECT
+                    TO_CHAR(date_trunc('day', fecha_registro), 'YYYY-MM-DD') AS dia,
+                    COUNT(*) AS total
+                FROM registro_ganadero
+                WHERE fecha_registro >= CURRENT_DATE - INTERVAL '{$dias} days'
+                GROUP BY 1
+                ORDER BY 1 ASC
+            ";
+            return Database::fetchAll($sql);
+        } catch (Exception $e) {
+            error_log('Error al obtener registros por día: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Fincas creadas por día (últimos N días)
+     */
+    public function getFincasPorDia($dias = 30)
+    {
+        try {
+            $sql = "
+                SELECT
+                    TO_CHAR(date_trunc('day', fecha_creacion), 'YYYY-MM-DD') AS dia,
+                    COUNT(*) AS total
+                FROM finca
+                WHERE fecha_creacion >= CURRENT_DATE - INTERVAL '{$dias} days'
+                GROUP BY 1
+                ORDER BY 1 ASC
+            ";
+            return Database::fetchAll($sql);
+        } catch (Exception $e) {
+            error_log('Error al obtener fincas por día: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
      * Obtener usuarios administradores de finca
      */
     public function getUsuariosAdministradores()
