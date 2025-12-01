@@ -116,11 +116,6 @@ $moduleHead = ob_get_clean();
 
 ob_start();
 ?>
-        <div class="content-header">
-            <h1 class="page-title">Administradores del Sistema</h1>
-            <p class="page-subtitle">Gestión completa de usuarios administrativos (CRUD)</p>
-        </div>
-
         <div class="toolbar">
             <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 0.5rem; width: 100%;">
                 <input id="q" class="input" placeholder="Buscar por nombre, email o teléfono" />
@@ -229,8 +224,13 @@ ob_start();
                                 </svg>
                             </span>
                         </th>
-                        <th class="sortable header-two-lines" data-sort="email_verificado">
-                            Email<br>Verificado
+                        <th class="sortable" data-sort="email_verificado" title="Email Verificado">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; cursor: help;">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                                <circle cx="19" cy="5" r="4" fill="var(--success-color)" stroke="none"></circle>
+                                <path d="M17 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                            </svg>
                             <span class="sort-indicator">
                                 <svg class="arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <polyline points="18 15 12 9 6 15"></polyline>

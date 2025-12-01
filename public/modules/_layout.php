@@ -15,7 +15,7 @@ if (!isset($moduleScripts)) {
     $moduleScripts = '';
 }
 $layoutActive = $layoutActive ?? '';
-$bottomNav = $bottomNav ?? true;
+$bottomNav = $bottomNav ?? false; // Deshabilitado por defecto
 
 $modulePermissions = [
     'dashboard'     => ['SUPER_ADMIN', 'TECNICO', 'ADMIN_FINCA'],
@@ -50,6 +50,7 @@ if ($layoutActive && !$canAccessModule($layoutActive)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($moduleTitle); ?> - Telegan Admin</title>
     <link rel="stylesheet" href="../../css/styles.css">
+    <link rel="stylesheet" href="../../css/futuristic-theme.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -57,7 +58,14 @@ if ($layoutActive && !$canAccessModule($layoutActive)) {
         (function() {
             try {
                 const savedTheme = localStorage.getItem('telegan-theme');
+                // Por defecto siempre oscuro si no hay tema guardado
                 const theme = savedTheme || 'dark';
+                
+                // Si no hay tema guardado, setearlo en localStorage
+                if (!savedTheme) {
+                    localStorage.setItem('telegan-theme', 'dark');
+                }
+                
                 document.documentElement.setAttribute('data-theme', theme);
             } catch (_) {
                 document.documentElement.setAttribute('data-theme', 'dark');
@@ -67,7 +75,7 @@ if ($layoutActive && !$canAccessModule($layoutActive)) {
     <?php echo $moduleHead ?? ''; ?>
 </head>
 <body>
-    <header class="header">
+    <header class="header header-gradient">
         <div class="header-content">
             <div class="header-left">
                 <button class="menu-toggle" id="menuToggle" title="Menú">

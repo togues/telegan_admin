@@ -10,11 +10,17 @@
 
     /**
      * Inicializar tema al cargar la página
+     * Por defecto: tema oscuro
      */
     function initTheme() {
         const savedTheme = localStorage.getItem(THEME_KEY);
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+        // Por defecto siempre oscuro si no hay tema guardado
+        const theme = savedTheme || 'dark';
+        
+        // Si no hay tema guardado, setearlo en localStorage
+        if (!savedTheme) {
+            localStorage.setItem(THEME_KEY, 'dark');
+        }
         
         document.documentElement.setAttribute('data-theme', theme);
         updateThemeIcons(theme);

@@ -224,7 +224,8 @@ ob_start();
         background: var(--bg-secondary);
     }
     #captureMap {
-        height: 360px;
+        height: 500px;
+        min-height: 400px;
         width: 100%;
     }
     .map-placeholder {
@@ -296,7 +297,7 @@ ob_start();
     .modal-content {
         background: var(--bg-card);
         border-radius: 18px;
-        width: min(920px, 100%);
+        width: min(90%, 1400px);
         max-height: 96vh;
         overflow-y: auto;
         box-shadow: var(--shadow-lg);
@@ -373,8 +374,16 @@ ob_start();
     @media (max-width: 768px) {
         .toolbar { grid-template-columns: 1fr; gap: 0.75rem; }
         .filters-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-        .modal-content { padding: 1.25rem; border-radius: 16px; }
+        .modal-content { 
+            padding: 1.25rem; 
+            border-radius: 16px; 
+            width: 95%;
+        }
         .modal-actions { flex-direction: column; align-items: stretch; }
+        #captureMap {
+            height: 350px;
+            min-height: 300px;
+        }
     }
 </style>
 <?php

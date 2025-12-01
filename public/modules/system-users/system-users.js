@@ -180,7 +180,20 @@ function renderRows(rows) {
         <td>${escapeHtml(r.telefono || '-')}</td>
         <td><span class="role-badge ${roleClass}">${roleLabel}</span></td>
         <td><span class="status-dot ${dot}"></span>${r.activo ? 'Activo' : 'Inactivo'}</td>
-        <td>${r.email_verificado ? '✓' : '✗'}</td>
+        <td>
+          ${r.email_verificado 
+            ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--success-color); cursor: help;" title="Email Verificado">
+                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                 <polyline points="22,6 12,13 2,6"></polyline>
+                 <path d="M9 12l2 2 4-4" stroke="var(--success-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="fill: none;"></path>
+               </svg>`
+            : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary); cursor: help;" title="Email No Verificado">
+                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                 <polyline points="22,6 12,13 2,6"></polyline>
+                 <line x1="9" y1="12" x2="15" y2="12" stroke="var(--error-color)" stroke-width="2" stroke-linecap="round"></line>
+               </svg>`
+          }
+        </td>
         <td>${fmtDate(r.ultima_sesion)}</td>
         <td>${fmtDateOnly(r.fecha_registro)}</td>
       </tr>`;

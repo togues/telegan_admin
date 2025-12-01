@@ -114,11 +114,6 @@ $moduleHead = ob_get_clean();
 
 ob_start();
 ?>
-        <div class="content-header">
-            <h1 class="page-title">Gestión de Usuarios</h1>
-            <p class="page-subtitle">Administra usuarios del sistema, roles y permisos</p>
-        </div>
-
         <div class="toolbar">
             <div style="display: grid; grid-template-columns: 1fr auto auto auto auto auto auto; gap: 0.5rem; width: 100%;">
                 <input id="q" class="input" placeholder="Buscar por nombre, email o teléfono" />

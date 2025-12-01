@@ -485,6 +485,13 @@ async function bulkAction(fn) {
 function toggleModal(modal, show) {
     if (!modal) return;
     modal.style.display = show ? 'flex' : 'none';
+    
+    // Si se muestra el modal y hay un mapa, invalidar tamaño después de un pequeño delay
+    if (show && state.mapInstance) {
+        setTimeout(() => {
+            state.mapInstance.invalidateSize();
+        }, 100);
+    }
     if (!show) {
         if (state.mapInstance) {
             state.mapInstance.remove();
